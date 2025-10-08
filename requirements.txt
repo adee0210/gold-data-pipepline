@@ -1,0 +1,8 @@
+requests
+pymongo
+python-dotenv
+pandas
+schedule
+yfinance
+kagglehub
+ipykernel
