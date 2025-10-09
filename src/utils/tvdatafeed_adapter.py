@@ -24,14 +24,10 @@ class TVDataFeedAdapter:
 
             # Đổi tên cột về chuẩn
             df = df.reset_index()
-            df.columns = [c.lower() for c in df.columns]
+            # Columns từ tvDatafeed: ['datetime', 'symbol', 'open', 'high', 'low', 'close', 'volume']
             df.rename(
                 columns={
                     "datetime": "date_time",
-                    "open": "open",
-                    "high": "high",
-                    "low": "low",
-                    "close": "close",
                     "volume": "vol",  # Giữ volume từ TV thành vol
                 },
                 inplace=True,

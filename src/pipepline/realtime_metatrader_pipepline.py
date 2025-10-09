@@ -20,21 +20,27 @@ class RealtimeMetatraderPipepline:
         self.loader.realtime_load(df)
 
     def upsert_current_minute(self):
-        """Upsert nến phút hiện tại (đang hình thành)"""
-        df = self.extractor.get_current_minute_candle()
-        self.loader.upsert_current_minute_candle(df)
+        """Upsert nến phút hiện tại (đang hình thành) - chỉ khi data đã up-to-date"""
+        # Chỉ upsert nến hiện tại khi không còn data thiếu
+        if self.extractor.is_data_up_to_date():
+            df = self.extractor.get_current_minute_candle()
+            self.loader.upsert_current_minute_candle(df)
+        else:
+            print("Data not up-to-date, skipping current minute upsert")
 
     def run_realtime(self):
-        """Chạy pipeline realtime với 2 tác vụ:
-        1. Mỗi phút: Lấy dữ liệu mới (nến đã hoàn thành)
-        2. Mỗi 5 giây: Upsert nến phút hiện tại
+        """Chạy pipeline realtime với logic ưu tiên:
+        1. Mỗi phút: Lấy các nến thiếu (ưu tiên cao)
+        2. Mỗi 5 giây: Upsert nến hiện tại (chỉ khi data đã đủ)
         """
         schedule.every(1).minutes.do(self.run_once)
         schedule.every(5).seconds.do(self.upsert_current_minute)
 
         print("Realtime pipeline started:")
-        print("- Every 1 minute: Fetch new completed candles")
-        print("- Every 5 seconds: Update current minute candle")
+        print("- Every 1 minute: Fetch missing completed candles (priority)")
+        print(
+            "- Every 5 seconds: Update current minute candle (only when data is up-to-date)"
+        )
         print("Press Ctrl+C to stop.")
 
         while True:

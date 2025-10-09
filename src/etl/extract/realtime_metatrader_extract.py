@@ -27,7 +27,9 @@ class RealtimeMetatraderExtract:
         )
 
         self.symbol = symbol or os.getenv("TV_SYMBOL", "XAUUSD")
-        self.exchange = exchange or os.getenv("TV_EXCHANGE", "FOREXCOM")
+        self.exchange = exchange or os.getenv(
+            "TV_EXCHANGE", "OANDA"
+        )  # OANDA có volume data
         self.tv_adapter = TVDataFeedAdapter(tv_username, tv_password)
 
     def get_latest_minute(self):
@@ -41,7 +43,17 @@ class RealtimeMetatraderExtract:
 
     def fetch_realtime_data(self, start_time: datetime | None = None) -> pd.DataFrame:
         if start_time:
+            # Lấy từ phút tiếp theo sau start_time, nhưng kiểm tra không lấy từ tương lai
+            now = datetime.now()
             fetch_from = start_time + timedelta(minutes=1)
+
+            # Nếu fetch_from > hiện tại thì không có data mới
+            if fetch_from > now:
+                self.logger.info(
+                    f"No new data: latest DB time is {start_time}, current time {now}"
+                )
+                return pd.DataFrame()
+
             self.logger.info(
                 f"Fetching TradingView data for {self.symbol}@{self.exchange} since {fetch_from}"
             )
@@ -111,9 +123,76 @@ class RealtimeMetatraderExtract:
             self.logger.warning(f"No candle found for current minute {current_minute}")
             return pd.DataFrame()
 
-    def realtime_extract(self):
-        self.logger.info("Extracting realtime metatrader data ...")
+    def get_missing_minute_candles(self):
+        """Lấy các nến phút còn thiếu từ lịch sử tới hiện tại"""
+        from datetime import datetime, timedelta
+
+        self.logger.info("Checking for missing minute candles...")
         latest_minute = self.get_latest_minute()
+
+        if latest_minute is None:
+            self.logger.warning(
+                "No historical data found, cannot determine missing candles"
+            )
+            return pd.DataFrame()
+
+        now = datetime.now()
+        current_minute = now.replace(second=0, microsecond=0)
+
+        # Tính số phút thiếu từ latest_minute + 1 phút tới current_minute (không bao gồm current_minute)
+        next_minute = latest_minute + timedelta(minutes=1)
+
+        if next_minute >= current_minute:
+            self.logger.info(
+                f"No missing candles: latest={latest_minute}, current={current_minute}"
+            )
+            return pd.DataFrame()
+
+        self.logger.info(
+            f"Fetching missing candles from {next_minute} to {current_minute - timedelta(minutes=1)}"
+        )
+
+        # Lấy data từ next_minute và filter để chỉ lấy các nến đã hoàn thành
         df = self.fetch_realtime_data(latest_minute)
-        self.logger.info(f"Extracted {len(df)} records from {latest_minute} to now.")
-        return df
+
+        if df.empty:
+            return pd.DataFrame()
+
+        # Lọc chỉ lấy các nến từ next_minute tới trước current_minute (đã hoàn thành)
+        missing_candles = df[
+            (df["datetime"] >= next_minute) & (df["datetime"] < current_minute)
+        ]
+
+        self.logger.info(f"Found {len(missing_candles)} missing completed candles")
+        return missing_candles
+
+    def is_data_up_to_date(self):
+        """Kiểm tra xem data đã cập nhật tới hiện tại chưa"""
+        from datetime import datetime, timedelta
+
+        latest_minute = self.get_latest_minute()
+        if latest_minute is None:
+            return False
+
+        now = datetime.now()
+        current_minute = now.replace(second=0, microsecond=0)
+
+        # Data được coi là up-to-date nếu latest_minute >= current_minute - 1 phút
+        # (vì nến hiện tại chưa hoàn thành)
+        return latest_minute >= (current_minute - timedelta(minutes=1))
+
+    def realtime_extract(self):
+        """Extract dữ liệu realtime: ưu tiên lấy các nến thiếu trước"""
+        self.logger.info("Extracting realtime metatrader data ...")
+
+        # Trước tiên lấy các nến phút còn thiếu (đã hoàn thành)
+        missing_candles = self.get_missing_minute_candles()
+
+        if not missing_candles.empty:
+            self.logger.info(
+                f"Extracted {len(missing_candles)} missing completed candles"
+            )
+            return missing_candles
+        else:
+            self.logger.info("No missing candles found - data is up to date")
+            return pd.DataFrame()
