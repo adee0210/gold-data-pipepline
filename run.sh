@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Script to manage Candlestick ETF Extractor
+# Script to manage gold_data_project service
 # Usage: ./run.sh start|stop|restart|status
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PID_FILE="$SCRIPT_DIR/candlestick_etf.pid"
+PID_FILE="$SCRIPT_DIR/gold_data_project.pid"
 LOG_FILE="$SCRIPT_DIR/main.log"
 
 PYTHON_CMD="$SCRIPT_DIR/.venv/bin/python $SCRIPT_DIR/src/main.py"
@@ -13,7 +13,7 @@ start() {
     if [ -f "$PID_FILE" ]; then
         PID=$(cat "$PID_FILE")
         if ps -p "$PID" > /dev/null 2>&1; then
-            echo "Candlestick ETF Extractor is already running (PID: $PID)"
+            echo "gold_data_project is already running (PID: $PID)"
             return 1
         else
             echo "Removing stale PID file"
@@ -21,10 +21,10 @@ start() {
         fi
     fi
 
-    echo "Starting Candlestick ETF Extractor..."
+    echo "Starting gold_data_project..."
     nohup $PYTHON_CMD > "$LOG_FILE" 2>&1 &
     echo $! > "$PID_FILE"
-    echo "Candlestick ETF Extractor started (PID: $(cat "$PID_FILE"))"
+    echo "gold_data_project started (PID: $(cat "$PID_FILE"))"
 }
 
 stop() {
@@ -35,7 +35,7 @@ stop() {
 
     PID=$(cat "$PID_FILE")
     if ps -p "$PID" > /dev/null 2>&1; then
-        echo "Stopping Candlestick ETF Extractor (PID: $PID)..."
+        echo "Stopping gold_data_project (PID: $PID)..."
         kill "$PID"
         sleep 2
         if ps -p "$PID" > /dev/null 2>&1; then
@@ -43,7 +43,7 @@ stop() {
             kill -9 "$PID"
         fi
         rm "$PID_FILE"
-        echo "Candlestick ETF Extractor stopped"
+        echo "gold_data_project stopped"
     else
         echo "Process not running, removing stale PID file"
         rm "$PID_FILE"
@@ -60,12 +60,12 @@ status() {
     if [ -f "$PID_FILE" ]; then
         PID=$(cat "$PID_FILE")
         if ps -p "$PID" > /dev/null 2>&1; then
-            echo "Candlestick ETF Extractor is running (PID: $PID)"
+            echo "gold_data_project is running (PID: $PID)"
         else
             echo "PID file exists but process is not running"
         fi
     else
-        echo "Candlestick ETF Extractor is not running"
+        echo "gold_data_project is not running"
     fi
 }
 
