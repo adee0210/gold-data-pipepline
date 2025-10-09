@@ -37,6 +37,16 @@ class HistoricalMetatraderExtract:
                     "SPREAD",
                 ]
             ]
+
+            # Kết hợp date và time thành datetime field duy nhất
+            df["datetime"] = pd.to_datetime(
+                df["date"] + " " + df["time"], format="%Y.%m.%d %H:%M:%S"
+            )
+
+            # Đổi tên tickvol thành volume và xóa các cột không cần thiết
+            df = df.rename(columns={"tickvol": "volume"})
+            df = df.drop(columns=["date", "time", "vol", "spread"])
+
             self.logger.info(f"Extracted data successfully: {len(df)} records")
             return df
         except Exception as e:

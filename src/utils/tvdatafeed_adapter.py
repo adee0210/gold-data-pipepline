@@ -32,17 +32,14 @@ class TVDataFeedAdapter:
                     "high": "high",
                     "low": "low",
                     "close": "close",
-                    "volume": "tickvol",
+                    "volume": "vol",  # Giữ volume từ TV thành vol
                 },
                 inplace=True,
             )
             # Tách date và time
             df["date"] = df["date_time"].dt.strftime("%Y.%m.%d")
             df["time"] = df["date_time"].dt.strftime("%H:%M:%S")
-            # Bổ sung các trường còn thiếu
-            df["vol"] = 0
-            df["spread"] = 0
-            # Chỉ giữ các trường cần thiết
+            # Chỉ giữ các trường cần thiết (bỏ tickvol và spread)
             df = df[
                 [
                     "date",
@@ -51,9 +48,7 @@ class TVDataFeedAdapter:
                     "high",
                     "low",
                     "close",
-                    "tickvol",
                     "vol",
-                    "spread",
                 ]
             ]
             return df
