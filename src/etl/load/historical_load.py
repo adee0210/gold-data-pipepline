@@ -19,8 +19,28 @@ class HistoricalLoad:
         except Exception as e:
             self.logger.error(f"Can not to connect MongoDB Config: {str(e)}")
             raise
-    
 
-    def historical_load(self):
-        
+    def chunk_data_frame(self, historical_data_extract, chunk_size):
+        for i in range(0, len(historical_data_extract), chunk_size):
+            yield historical_data_extract.iloc[i : i + chunk_size]
 
+    def historical_load(self, historical_data_extract):
+        self.logger.info("Start load batch historical data ...")
+        chunk_size = self.batch_size_extract
+        batch_count = 0
+        for chunk in self.chunk_data_frame(
+            historical_data_extract, chunk_size=chunk_size
+        ):
+            try:
+                chunk_data = chunk.to_dict("records")
+                self.gold_collection.create_index(
+                    [("Date", 1)], unique=True, background=True
+                )
+                self.gold_collection.insert_many(chunk_data, ordered=False)
+                batch_count += 1
+                self.logger.info(
+                    f"Batch {batch_count} processed: {len(chunk_data)} records"
+                )
+            except Exception as e:
+                self.logger.error(f"Error to load historical data: {str(e)}")
+        self.logger.info(f"Total batches processed: {batch_count}")

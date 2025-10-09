@@ -26,6 +26,22 @@ class HistoricalExtract:
                 self.historical_data_url_from_kaggle,
                 self.historical_data_url_from_kaggle_file_path,
             )
+            # Tiền xử lý: tách cột thành các trường riêng biệt nếu cần
+            if "Date;Open;High;Low;Close;Volume" in historical_data_extract.columns:
+                historical_data_extract = historical_data_extract[
+                    "Date;Open;High;Low;Close;Volume"
+                ].str.split(";", expand=True)
+                historical_data_extract.columns = [
+                    "Date",
+                    "Open",
+                    "High",
+                    "Low",
+                    "Close",
+                    "Volume",
+                ]
+            self.logger.info(
+                f"Extracted data successfully: {len(historical_data_extract)} records"
+            )
             return historical_data_extract
         except Exception as e:
             self.logger.error(f"Error to extract data: {str(e)}")
