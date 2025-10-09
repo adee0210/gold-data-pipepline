@@ -6,3 +6,5 @@ schedule
 yfinance
 kagglehub
 ipykernel
+gdown
+git+https://github.com/rongardF/tvdatafeed.git

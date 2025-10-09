@@ -1,0 +1,62 @@
+# Adapter để lấy dữ liệu realtime từ TradingView qua tvdatafeed
+from typing import Optional
+from tvDatafeed import TvDatafeed, Interval
+import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class TVDataFeedAdapter:
+    def __init__(self, username: Optional[str] = None, password: Optional[str] = None):
+        # TvDatafeed expects string credentials; pass empty string when None to satisfy type checks
+        self.tv = TvDatafeed(username or "", password or "")
+
+    def get_realtime_data(
+        self, symbol, exchange, interval=Interval.in_1_minute, n_bars=5000
+    ):
+        try:
+            df = self.tv.get_hist(
+                symbol=symbol, exchange=exchange, interval=interval, n_bars=n_bars
+            )
+            if df is None or df.empty:
+                raise ValueError("No data returned from TradingView")
+
+            # Đổi tên cột về chuẩn
+            df = df.reset_index()
+            df.columns = [c.lower() for c in df.columns]
+            df.rename(
+                columns={
+                    "datetime": "date_time",
+                    "open": "open",
+                    "high": "high",
+                    "low": "low",
+                    "close": "close",
+                    "volume": "tickvol",
+                },
+                inplace=True,
+            )
+            # Tách date và time
+            df["date"] = df["date_time"].dt.strftime("%Y.%m.%d")
+            df["time"] = df["date_time"].dt.strftime("%H:%M:%S")
+            # Bổ sung các trường còn thiếu
+            df["vol"] = 0
+            df["spread"] = 0
+            # Chỉ giữ các trường cần thiết
+            df = df[
+                [
+                    "date",
+                    "time",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "tickvol",
+                    "vol",
+                    "spread",
+                ]
+            ]
+            return df
+        except Exception as e:
+            logger.exception(f"Error fetching data for {symbol}@{exchange}: {e}")
+            return None

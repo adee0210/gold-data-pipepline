@@ -16,5 +16,7 @@ GOLD_DATA_CONFIG = {
     "collection": "gold_minute_data",
     "historical_data_url_from_kaggle": "novandraanugrah/xauusd-gold-price-historical-data-2004-2024",
     "historical_data_url_from_kaggle_file_path": "XAU_1m_data.csv",
-    "batch_size_extract": 50000,
+    "batch_size_extract": 10000,
+    "metatrader_data_gdrive_url": "https://drive.google.com/uc?id=1hW-l6VJKc-fUpgnn334DlMrqQK_nQfNk",
+    "metatrader_data_local_path": "data/gold_data_metatrader5.csv",
 }
