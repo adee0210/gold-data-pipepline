@@ -33,7 +33,7 @@ class RealtimeMetatraderLoad:
             try:
                 chunk_data = chunk.to_dict("records")
                 self.gold_collection.create_index(
-                    [("date", 1), ("time", 1)], unique=True, background=True
+                    [("date", 1)], unique=True, background=True
                 )
                 self.gold_collection.insert_many(chunk_data, ordered=False)
                 batch_count += 1
