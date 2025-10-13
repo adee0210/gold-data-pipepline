@@ -55,17 +55,45 @@ class RealtimeMetatraderPipepline:
         else:
             print("Data not up-to-date, skipping current minute upsert")
 
+    def check_and_fix_historical_gaps(self, lookback_hours=24):
+        """
+        Kiểm tra và sửa chữa khoảng trống dữ liệu trong lịch sử
+
+        Args:
+            lookback_hours (int): Số giờ cần kiểm tra ngược về quá khứ
+        """
+        # Sử dụng phương thức mới trong extractor để lấy dữ liệu thiếu
+        gap_df = self.extractor.check_and_fix_gaps(lookback_hours=lookback_hours)
+
+        if not gap_df.empty:
+            # Load dữ liệu vào database
+            self.loader.realtime_load(gap_df)
+            print(
+                f"Fixed {len(gap_df)} missing records in the last {lookback_hours} hours"
+            )
+        else:
+            print(f"No data gaps found in the last {lookback_hours} hours")
+
     def run_realtime(self):
         """Chạy pipeline realtime với logic ưu tiên:
-        1. Mỗi phút: Lấy các nến thiếu (ưu tiên cao)
-        2. Mỗi 5 giây:
+        1. Ban đầu: Kiểm tra và sửa khoảng trống dữ liệu 24 giờ qua
+        2. Mỗi phút: Lấy các nến thiếu (ưu tiên cao)
+        3. Mỗi 5 giây:
            - Cập nhật trạng thái cuối cùng của nến phút trước (nếu vừa chuyển phút)
            - Upsert nến hiện tại (chỉ khi data đã đủ)
+        4. Mỗi 4 giờ: Kiểm tra và sửa khoảng trống dữ liệu lớn
         """
+        # Kiểm tra và sửa dữ liệu thiếu khi khởi động
+        print("Checking for historical data gaps on startup...")
+        self.check_and_fix_historical_gaps(lookback_hours=24)
+
         schedule.every(1).minutes.do(self.run_once)
         schedule.every(5).seconds.do(self.upsert_current_minute)
+        schedule.every(4).hours.do(
+            lambda: self.check_and_fix_historical_gaps(lookback_hours=24)
+        )
 
-        print("Realtime pipeline started:")
+        print("Realtime pipeline started with enhanced gap detection:")
         print("- Every 1 minute: Fetch missing completed candles (priority)")
         print(
             "- Every 5 seconds: Update previous minute's final state (if just changed)"
@@ -73,11 +101,16 @@ class RealtimeMetatraderPipepline:
         print(
             "- Every 5 seconds: Update current minute candle (only when data is up-to-date)"
         )
+        print("- Every 4 hours: Check and fix historical data gaps (last 24 hours)")
         print("Press Ctrl+C to stop.")
 
-        while True:
-            schedule.run_pending()
-            time.sleep(1)
+        try:
+            while True:
+                schedule.run_pending()
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("Received shutdown signal. Exiting...")
+            sys.exit(0)
 
 
 if __name__ == "__main__":
