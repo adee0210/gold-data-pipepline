@@ -181,6 +181,41 @@ class RealtimeMetatraderExtract:
         # (vì nến hiện tại chưa hoàn thành)
         return latest_minute >= (current_minute - timedelta(minutes=1))
 
+    def get_previous_minute_final_candle(self):
+        """Lấy nến cuối cùng của phút trước đó để cập nhật trạng thái cuối cùng"""
+        from datetime import datetime, timedelta
+
+        # Lấy thời gian hiện tại và phút trước
+        now = datetime.now()
+        current_minute = now.replace(second=0, microsecond=0)
+        previous_minute = current_minute - timedelta(minutes=1)
+
+        self.logger.info(
+            f"Fetching final state of previous minute candle for {previous_minute}"
+        )
+
+        # Lấy data gần nhất để đảm bảo có nến phút trước
+        fetch_from = previous_minute - timedelta(minutes=1)
+        df = self.fetch_realtime_data(fetch_from)
+
+        if df.empty:
+            self.logger.warning("No data available for previous minute check")
+            return pd.DataFrame()
+
+        # Lọc lấy nến phút trước
+        previous_candle = df[df["datetime"] == previous_minute]
+
+        if not previous_candle.empty:
+            self.logger.info(
+                f"Found previous minute final candle: {previous_minute}, close={previous_candle.iloc[0]['close']}, volume={previous_candle.iloc[0]['volume']}"
+            )
+            return previous_candle
+        else:
+            self.logger.warning(
+                f"No candle found for previous minute {previous_minute}"
+            )
+            return pd.DataFrame()
+
     def realtime_extract(self):
         """Extract dữ liệu realtime: ưu tiên lấy các nến thiếu trước"""
         self.logger.info("Extracting realtime metatrader data ...")
