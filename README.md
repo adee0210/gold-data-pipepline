@@ -24,7 +24,7 @@ Usage
 To run the application, use the following command:
 
 ```bash
-python main.py
+./run.sh start
 ```
 
 Contributing
