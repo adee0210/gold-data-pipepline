@@ -74,11 +74,8 @@ class RealtimeMetatraderExtract:
         )
         if df is None or df.empty:
             self.logger.warning("No data returned from TV adapter")
-            # Gửi cảnh báo Discord khi không có data từ TradingView
-            self.discord_alert.alert_no_data_from_source(
-                source="TradingView",
-                error_details=f"Không nhận được dữ liệu cho {self.symbol}@{self.exchange}",
-            )
+            # KHÔNG gửi alert ngay lập tức - để logic check_and_alert_no_new_data xử lý
+            # Alert chỉ được gửi sau 1 phút không có data mới
             return pd.DataFrame(
                 columns=[
                     "datetime",
