@@ -116,11 +116,7 @@ MONGO_USER=your_username
 MONGO_PASS=your_password
 MONGO_AUTH=admin
 
-# TradingView Configuration (tùy chọn)
-TV_SYMBOL=XAUUSD
-TV_EXCHANGE=OANDA
-
-# Discord Alerts (tùy chọn nhưng khuyến nghị)
+# Discord Alerts
 DISCORD_ALERT_ENABLED=true
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
 ```
