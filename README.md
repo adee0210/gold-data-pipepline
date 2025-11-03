@@ -162,7 +162,7 @@ GOLD_DATA_CONFIG = {
     "database": "gold_db",                           # Tên database
     "collection": "gold_minute_data",                # Tên collection
     "batch_size_extract": 10000,                     # Kích thước batch khi extract
-    "metatrader_data_gdrive_url": "...",             # URL Google Drive chứa data lịch sử
+    "metatrader_data_gdrive_url": "https://drive.google.com/uc?id=1v7HVgXhUmGEUbmbkPxpZ44RiUJH8V3NK",             # URL Google Drive chứa data lịch sử
     "metatrader_data_local_path": "data/gold_data_metatrader5.csv"
 }
 ```
