@@ -187,7 +187,7 @@ class DiscordAlertUtil:
         message = f"**LỖI: Không thể lấy dữ liệu từ {source}**\n"
         message += f"Thời gian: {timestamp}\n"
         message += f"Lỗi: {error_message}\n"
-        message += f" Vui lòng kiểm tra kết nối và cấu hình"
+        message += f"Vui lòng kiểm tra kết nối và cấu hình"
 
         self._send_discord_message(message, alert_key)
 
@@ -202,7 +202,7 @@ class DiscordAlertUtil:
         alert_key = f"format_error_{source}"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        message = f" **LỖI ĐỊNH DẠNG DỮ LIỆU từ {source}**\n"
+        message = f"**LỖI ĐỊNH DẠNG DỮ LIỆU từ {source}**\n"
         message += f"Thời gian: {timestamp}\n"
         message += f"Chi tiết: {error_details}\n"
         message += f"Dữ liệu nhận được không đúng định dạng mong đợi"
@@ -237,7 +237,7 @@ class DiscordAlertUtil:
             minutes = int(time_diff.total_seconds() / 60)
             message += f"Đã {minutes} phút không có dữ liệu mới\n"
 
-        message += f" Hệ thống không nhận được dữ liệu mới trong 1 phút qua"
+        message += f"Hệ thống không nhận được dữ liệu mới trong 1 phút qua"
 
         self._send_discord_message(message, alert_key)
 
