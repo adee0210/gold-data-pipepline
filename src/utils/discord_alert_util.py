@@ -10,6 +10,7 @@ class DiscordAlertUtil:
     """
     Class để gửi cảnh báo lỗi về Discord khi có vấn đề với data extraction.
     Chỉ gửi cảnh báo khi có lỗi, không gửi khi thành công.
+    Tự động bỏ qua cảnh báo vào T7/CN khi thị trường đóng cửa.
     """
 
     def __init__(self):
@@ -32,6 +33,52 @@ class DiscordAlertUtil:
             self.enabled = False
         else:
             self.logger.info("Discord alerts are enabled")
+
+    def _is_weekend(self, dt: Optional[datetime] = None) -> bool:
+        """
+        Kiểm tra xem có phải cuối tuần không (Thứ 7 hoặc Chủ nhật)
+
+        Args:
+            dt: Datetime để kiểm tra (None = hiện tại)
+
+        Returns:
+            bool: True nếu là T7 (5) hoặc CN (6)
+        """
+        if dt is None:
+            dt = datetime.now()
+        return dt.weekday() in [5, 6]  # 5=Saturday, 6=Sunday
+
+    def _is_market_closed_time(self, dt: Optional[datetime] = None) -> bool:
+        """
+        Kiểm tra xem có phải thời gian thị trường đóng cửa không
+        Thị trường vàng thường đóng cửa:
+        - Toàn bộ Chủ nhật (weekday=6)
+        - Thứ 7 sau khoảng 12h trưa (weekday=5 và sau 12:00)
+
+        Args:
+            dt: Datetime để kiểm tra (None = hiện tại)
+
+        Returns:
+            bool: True nếu thị trường đóng cửa
+        """
+        if dt is None:
+            dt = datetime.now()
+
+        weekday = dt.weekday()
+
+        # Chủ nhật: Thị trường đóng cửa cả ngày
+        if weekday == 6:
+            return True
+
+        # Thứ 7: Thị trường có thể đóng cửa sau 12h trưa
+        # (Tùy múi giờ, có thể điều chỉnh giờ này)
+        if weekday == 5:
+            # Coi như sau 6h sáng thứ 7 là đã đóng cửa
+            # (vì thị trường mở muộn hơn trong tuần)
+            if dt.hour >= 6:
+                return True
+
+        return False
 
     def _should_send_alert(self, alert_key: str) -> bool:
         """
@@ -100,16 +147,24 @@ class DiscordAlertUtil:
     ):
         """
         Cảnh báo khi không lấy được data từ nguồn
+        Tự động bỏ qua nếu là T7/CN (thị trường đóng cửa)
 
         Args:
             source: Tên nguồn data (VD: TradingView, MetaTrader)
             error_details: Chi tiết lỗi nếu có
         """
+        # Kiểm tra nếu là cuối tuần - thị trường đóng cửa
+        if self._is_market_closed_time():
+            self.logger.info(
+                f"Bỏ qua cảnh báo no_data từ {source} - Thị trường đóng cửa (T7/CN)"
+            )
+            return
+
         alert_key = f"no_data_{source}"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        message = f"**CẢNH BÁO: Không có dữ liệu từ {source}**\n"
-        message += f"Thời gian: {timestamp}\n"
+        message = f"🚨 **CẢNH BÁO: Không có dữ liệu từ {source}**\n"
+        message += f"⏰ Thời gian: {timestamp}\n"
 
         if error_details:
             message += f"Chi tiết: {error_details}\n"
@@ -157,26 +212,34 @@ class DiscordAlertUtil:
     def alert_no_new_data(self, source: str, last_data_time: Optional[datetime] = None):
         """
         Cảnh báo khi không có data mới sau 1 phút
+        Tự động bỏ qua nếu là T7/CN (thị trường đóng cửa)
 
         Args:
             source: Tên nguồn data
             last_data_time: Thời gian của data cuối cùng
         """
+        # Kiểm tra nếu là cuối tuần - thị trường đóng cửa
+        if self._is_market_closed_time():
+            self.logger.info(
+                f"Bỏ qua cảnh báo no_new_data từ {source} - Thị trường đóng cửa (T7/CN)"
+            )
+            return
+
         alert_key = f"no_new_data_{source}"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        message = f" **CẢNH BÁO: Không có dữ liệu mới từ {source}**\n"
-        message += f"Thời gian: {timestamp}\n"
+        message = f"⏱️ **CẢNH BÁO: Không có dữ liệu mới từ {source}**\n"
+        message += f"⏰ Thời gian: {timestamp}\n"
 
         if last_data_time:
             message += (
-                f" Dữ liệu cuối: {last_data_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f"📅 Dữ liệu cuối: {last_data_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
             )
             time_diff = datetime.now() - last_data_time
             minutes = int(time_diff.total_seconds() / 60)
-            message += f"Đã {minutes} phút không có dữ liệu mới\n"
+            message += f"⏳ Đã {minutes} phút không có dữ liệu mới\n"
 
-        message += f"Hệ thống không nhận được dữ liệu mới trong 1 phút qua"
+        message += f"⚠️ Hệ thống không nhận được dữ liệu mới trong 1 phút qua"
 
         self._send_discord_message(message, alert_key)
 
@@ -203,21 +266,32 @@ class DiscordAlertUtil:
     ):
         """
         Cảnh báo khi phát hiện khoảng trống trong dữ liệu
+        Tự động bỏ qua nếu khoảng trống nằm trong T7/CN (thị trường đóng cửa)
 
         Args:
             start_time: Thời điểm bắt đầu khoảng trống
             end_time: Thời điểm kết thúc khoảng trống
             gap_minutes: Số phút bị thiếu
         """
+        # Kiểm tra nếu khoảng trống nằm hoàn toàn trong T7/CN
+        if self._is_market_closed_time(start_time) and self._is_market_closed_time(
+            end_time
+        ):
+            self.logger.info(
+                f"Bỏ qua cảnh báo gap_detected [{start_time} - {end_time}] "
+                f"- Khoảng trống trong thời gian thị trường đóng cửa (T7/CN)"
+            )
+            return
+
         alert_key = f"gap_detected_{start_time.strftime('%Y%m%d%H%M')}"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        message = f" **PHÁT HIỆN KHOẢNG TRỐNG DỮ LIỆU**\n"
-        message += f"Phát hiện lúc: {timestamp}\n"
-        message += f" Khoảng trống từ: {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-        message += f"Đến: {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-        message += f"Thiếu: {gap_minutes} phút dữ liệu\n"
-        message += f"Hệ thống sẽ cố gắng lấy dữ liệu thiếu"
+        message = f"📊 **PHÁT HIỆN KHOẢNG TRỐNG DỮ LIỆU**\n"
+        message += f"⏰ Phát hiện lúc: {timestamp}\n"
+        message += f"📅 Khoảng trống từ: {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        message += f"📅 Đến: {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        message += f"⏳ Thiếu: {gap_minutes} phút dữ liệu\n"
+        message += f"🔄 Hệ thống sẽ cố gắng lấy dữ liệu thiếu"
 
         self._send_discord_message(message, alert_key)
 
@@ -226,11 +300,18 @@ class DiscordAlertUtil:
     ):
         """
         Kiểm tra và cảnh báo nếu không có data mới sau 1 phút
+        Tự động bỏ qua nếu là T7/CN (thị trường đóng cửa)
 
         Args:
             source: Tên nguồn data
             current_data_time: Thời gian của data hiện tại (None nếu không có data)
         """
+        # Kiểm tra nếu là cuối tuần - thị trường đóng cửa
+        if self._is_market_closed_time():
+            # Vẫn cập nhật tracking time nhưng không cảnh báo
+            tracking_key = f"data_time_{source}"
+            self.last_successful_data_time[tracking_key] = datetime.now()
+            return
         now = datetime.now()
         tracking_key = f"data_time_{source}"
 

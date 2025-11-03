@@ -433,9 +433,27 @@ class RealtimeMetatraderExtract:
                 (records[-1]["datetime"] + timedelta(minutes=1), end_time)
             )
 
+        # Lọc bỏ các khoảng trống nằm trong T7/CN (thị trường đóng cửa)
+        filtered_missing_ranges = []
+        for start_gap, end_gap in missing_ranges:
+            # Kiểm tra nếu khoảng trống nằm hoàn toàn trong thời gian thị trường đóng cửa
+            if self.discord_alert._is_market_closed_time(
+                start_gap
+            ) and self.discord_alert._is_market_closed_time(end_gap):
+                gap_minutes = int((end_gap - start_gap).total_seconds() // 60) + 1
+                self.logger.info(
+                    f"Bỏ qua khoảng trống từ {start_gap} đến {end_gap} ({gap_minutes} phút) "
+                    f"- Thị trường đóng cửa (T7/CN)"
+                )
+                continue
+            filtered_missing_ranges.append((start_gap, end_gap))
+
+        missing_ranges = filtered_missing_ranges
+
         if not missing_ranges:
             self.logger.info(
-                f"Không tìm thấy khoảng trống dữ liệu trong {lookback_hours} giờ qua"
+                f"Không tìm thấy khoảng trống dữ liệu trong {lookback_hours} giờ qua "
+                f"(đã loại bỏ T7/CN)"
             )
             return pd.DataFrame()
 
