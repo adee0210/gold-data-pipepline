@@ -84,7 +84,7 @@ class AdvancedLoggerConfig:
         log_name: str,
         log_file: str = "main.log",
         log_level: int = logging.INFO,
-        max_bytes: int = 50 * 1024 * 1024,  # 50MB
+        max_bytes: int = 10 * 1024 * 1024,  # 10MB
         backup_count: int = 5,  # 5 backups
         use_compression: bool = False,  # Không nén mặc định
     ):
