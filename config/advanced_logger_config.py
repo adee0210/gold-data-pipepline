@@ -105,12 +105,12 @@ class AdvancedLoggerConfig:
         Ví dụ file structure:
             Không nén:
             - main.log (đang ghi)
-            - main.log.1 (~50MB)
-            - main.log.2 (~50MB)
-            - main.log.3 (~50MB)
-            - main.log.4 (~50MB)
-            - main.log.5 (~50MB)
-            Tổng: ~300MB
+            - main.log.1 (~10MB)
+            - main.log.2 (~10MB)
+            - main.log.3 (~10MB)
+            - main.log.4 (~10MB)
+            - main.log.5 (~10MB)
+            Tổng: ~60MB
 
             Có nén:
             - main.log (đang ghi)
@@ -119,7 +119,6 @@ class AdvancedLoggerConfig:
             - main.log.3.gz (~5-10MB)
             - main.log.4.gz (~5-10MB)
             - main.log.5.gz (~5-10MB)
-            Tổng: ~75-100MB (tiết kiệm ~70%)
         """
         root_dir = os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
