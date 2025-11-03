@@ -19,8 +19,14 @@ class LoggerConfig:
             "%(asctime)s - %(processName)s - %(levelname)s - %(name)s - %(message)s"
         )
 
+        # RotatingFileHandler: Tự động rotate khi file đạt 50MB
+        # Giữ lại 5 file backup (main.log.1, main.log.2, ..., main.log.5)
+        # Tổng cộng tối đa 300MB (50MB x 6 files)
         file_handler = RotatingFileHandler(
-            filename=base_path, maxBytes=10 * 1024 * 1024, encoding="utf-8"
+            filename=base_path,
+            maxBytes=10 * 1024 * 1024,  # 50MB
+            backupCount=5,  # Giữ 5 file backup
+            encoding="utf-8",
         )
         file_handler.setFormatter(formatter)
 

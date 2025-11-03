@@ -2,6 +2,7 @@ import gdown
 import pandas as pd
 from config.logger_config import LoggerConfig
 from config.variable_config import GOLD_DATA_CONFIG
+from src.utils.discord_alert_util import DiscordAlertUtil
 import os
 
 
@@ -12,6 +13,7 @@ class HistoricalMetatraderExtract:
                 "Extract Historical Metatrader gold data"
             )
             self.gdrive_url = GOLD_DATA_CONFIG["metatrader_data_gdrive_url"]
+            self.discord_alert = DiscordAlertUtil()
             self.logger.info("Successfully to read config")
         except Exception as e:
             self.logger.error(f"Error to read config: {str(e)}")
@@ -51,4 +53,10 @@ class HistoricalMetatraderExtract:
             return df
         except Exception as e:
             self.logger.error(f"Error to extract data: {str(e)}")
+            # Gửi cảnh báo Discord khi có lỗi extract data
+            self.discord_alert.alert_data_fetch_error(
+                source="GoogleDrive_Metatrader",
+                error_message=f"Lỗi khi tải dữ liệu từ Google Drive: {str(e)}",
+            )
+            return None
             raise
