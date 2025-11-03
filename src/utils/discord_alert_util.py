@@ -163,8 +163,8 @@ class DiscordAlertUtil:
         alert_key = f"no_data_{source}"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        message = f"🚨 **CẢNH BÁO: Không có dữ liệu từ {source}**\n"
-        message += f"⏰ Thời gian: {timestamp}\n"
+        message = f"**CẢNH BÁO: Không có dữ liệu từ {source}**\n"
+        message += f"Thời gian: {timestamp}\n"
 
         if error_details:
             message += f"Chi tiết: {error_details}\n"
@@ -228,18 +228,16 @@ class DiscordAlertUtil:
         alert_key = f"no_new_data_{source}"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        message = f"⏱️ **CẢNH BÁO: Không có dữ liệu mới từ {source}**\n"
-        message += f"⏰ Thời gian: {timestamp}\n"
+        message = f"**CẢNH BÁO: Không có dữ liệu mới từ {source}**\n"
+        message += f"Thời gian: {timestamp}\n"
 
         if last_data_time:
-            message += (
-                f"📅 Dữ liệu cuối: {last_data_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-            )
+            message += f"Dữ liệu cuối: {last_data_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
             time_diff = datetime.now() - last_data_time
             minutes = int(time_diff.total_seconds() / 60)
-            message += f"⏳ Đã {minutes} phút không có dữ liệu mới\n"
+            message += f"Đã {minutes} phút không có dữ liệu mới\n"
 
-        message += f"⚠️ Hệ thống không nhận được dữ liệu mới trong 1 phút qua"
+        message += f" Hệ thống không nhận được dữ liệu mới trong 1 phút qua"
 
         self._send_discord_message(message, alert_key)
 
@@ -286,12 +284,12 @@ class DiscordAlertUtil:
         alert_key = f"gap_detected_{start_time.strftime('%Y%m%d%H%M')}"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        message = f"📊 **PHÁT HIỆN KHOẢNG TRỐNG DỮ LIỆU**\n"
-        message += f"⏰ Phát hiện lúc: {timestamp}\n"
-        message += f"📅 Khoảng trống từ: {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-        message += f"📅 Đến: {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-        message += f"⏳ Thiếu: {gap_minutes} phút dữ liệu\n"
-        message += f"🔄 Hệ thống sẽ cố gắng lấy dữ liệu thiếu"
+        message = f"**PHÁT HIỆN KHOẢNG TRỐNG DỮ LIỆU**\n"
+        message += f"Phát hiện lúc: {timestamp}\n"
+        message += f"Khoảng trống từ: {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        message += f"Đến: {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        message += f"Thiếu: {gap_minutes} phút dữ liệu\n"
+        message += f"Hệ thống sẽ cố gắng lấy dữ liệu thiếu"
 
         self._send_discord_message(message, alert_key)
 
