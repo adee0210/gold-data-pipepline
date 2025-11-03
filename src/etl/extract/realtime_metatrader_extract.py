@@ -430,17 +430,16 @@ class RealtimeMetatraderExtract:
                 (records[-1]["datetime"] + timedelta(minutes=1), end_time)
             )
 
-        # Lọc bỏ các khoảng trống nằm trong T7/CN (thị trường đóng cửa)
+        # Lọc bỏ các khoảng trống BẮT ĐẦU trong T7/CN (thị trường đóng cửa)
+        # Gap từ cuối tuần sang tuần mới là bình thường
         filtered_missing_ranges = []
         for start_gap, end_gap in missing_ranges:
-            # Kiểm tra nếu khoảng trống nằm hoàn toàn trong thời gian thị trường đóng cửa
-            if self.discord_alert._is_market_closed_time(
-                start_gap
-            ) and self.discord_alert._is_market_closed_time(end_gap):
+            # Kiểm tra nếu gap BẮT ĐẦU trong thời gian thị trường đóng cửa
+            if self.discord_alert._is_market_closed_time(start_gap):
                 gap_minutes = int((end_gap - start_gap).total_seconds() // 60) + 1
                 self.logger.info(
                     f"Bỏ qua khoảng trống từ {start_gap} đến {end_gap} ({gap_minutes} phút) "
-                    f"- Thị trường đóng cửa (T7/CN)"
+                    f"- Gap bắt đầu trong thời gian thị trường đóng cửa (T7/CN)"
                 )
                 continue
             filtered_missing_ranges.append((start_gap, end_gap))

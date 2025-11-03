@@ -264,20 +264,19 @@ class DiscordAlertUtil:
     ):
         """
         Cảnh báo khi phát hiện khoảng trống trong dữ liệu
-        Tự động bỏ qua nếu khoảng trống nằm trong T7/CN (thị trường đóng cửa)
+        Tự động bỏ qua nếu khoảng trống bắt đầu trong T7/CN (thị trường đóng cửa)
 
         Args:
             start_time: Thời điểm bắt đầu khoảng trống
             end_time: Thời điểm kết thúc khoảng trống
             gap_minutes: Số phút bị thiếu
         """
-        # Kiểm tra nếu khoảng trống nằm hoàn toàn trong T7/CN
-        if self._is_market_closed_time(start_time) and self._is_market_closed_time(
-            end_time
-        ):
+        # Kiểm tra nếu gap BẮT ĐẦU trong thời gian đóng cửa (T7/CN)
+        # Gap từ cuối tuần sang tuần mới là BÌNH THƯỜNG, không cần alert
+        if self._is_market_closed_time(start_time):
             self.logger.info(
-                f"Bỏ qua cảnh báo gap_detected [{start_time} - {end_time}] "
-                f"- Khoảng trống trong thời gian thị trường đóng cửa (T7/CN)"
+                f"Bỏ qua cảnh báo gap_detected [{start_time.strftime('%Y-%m-%d %H:%M')} - {end_time.strftime('%Y-%m-%d %H:%M')}] "
+                f"({gap_minutes} phút) - Gap bắt đầu trong thời gian thị trường đóng cửa (T7/CN)"
             )
             return
 
