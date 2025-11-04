@@ -54,6 +54,7 @@ class DiscordAlertUtil:
         Thị trường vàng thường đóng cửa:
         - Toàn bộ Chủ nhật (weekday=6)
         - Thứ 7 sau khoảng 12h trưa (weekday=5 và sau 12:00)
+        - Ngoài giờ giao dịch trong ngày (trước 6h sáng)
 
         Args:
             dt: Datetime để kiểm tra (None = hiện tại)
@@ -76,6 +77,12 @@ class DiscordAlertUtil:
             # Coi như sau 6h sáng thứ 7 là đã đóng cửa
             # (vì thị trường mở muộn hơn trong tuần)
             if dt.hour >= 6:
+                return True
+
+        # Các ngày thường (T2-T6): trước 6h sáng coi như ngoài giờ giao dịch
+        # Thị trường forex/vàng thường bắt đầu từ khoảng 6h sáng (tùy múi giờ)
+        if weekday in [0, 1, 2, 3, 4]:  # Monday to Friday
+            if dt.hour < 6:
                 return True
 
         return False
@@ -163,7 +170,7 @@ class DiscordAlertUtil:
         alert_key = f"no_data_{source}"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        message = f"**CẢNH BÁO: Không có dữ liệu từ {source}**\n"
+        message = f"**GOLD - CẢNH BÁO: Không có dữ liệu từ {source}**\n"
         message += f"Thời gian: {timestamp}\n"
 
         if error_details:
@@ -184,7 +191,7 @@ class DiscordAlertUtil:
         alert_key = f"fetch_error_{source}"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        message = f"**LỖI: Không thể lấy dữ liệu từ {source}**\n"
+        message = f"**GOLD - LỖI: Không thể lấy dữ liệu từ {source}**\n"
         message += f"Thời gian: {timestamp}\n"
         message += f"Lỗi: {error_message}\n"
         message += f"Vui lòng kiểm tra kết nối và cấu hình"
@@ -202,7 +209,7 @@ class DiscordAlertUtil:
         alert_key = f"format_error_{source}"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        message = f"**LỖI ĐỊNH DẠNG DỮ LIỆU từ {source}**\n"
+        message = f"**GOLD - LỖI ĐỊNH DẠNG DỮ LIỆU từ {source}**\n"
         message += f"Thời gian: {timestamp}\n"
         message += f"Chi tiết: {error_details}\n"
         message += f"Dữ liệu nhận được không đúng định dạng mong đợi"
@@ -228,7 +235,7 @@ class DiscordAlertUtil:
         alert_key = f"no_new_data_{source}"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        message = f"**CẢNH BÁO: Không có dữ liệu mới từ {source}**\n"
+        message = f"**GOLD - CẢNH BÁO: Không có dữ liệu mới từ {source}**\n"
         message += f"Thời gian: {timestamp}\n"
 
         if last_data_time:
@@ -252,7 +259,7 @@ class DiscordAlertUtil:
         alert_key = f"db_error_{operation}"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        message = f"**LỖI DATABASE: {operation}**\n"
+        message = f"**GOLD - LỖI DATABASE: {operation}**\n"
         message += f"Thời gian: {timestamp}\n"
         message += f"Lỗi: {error_message}\n"
         message += f"Vui lòng kiểm tra kết nối database"
@@ -271,19 +278,32 @@ class DiscordAlertUtil:
             end_time: Thời điểm kết thúc khoảng trống
             gap_minutes: Số phút bị thiếu
         """
-        # Kiểm tra nếu gap BẮT ĐẦU trong thời gian đóng cửa (T7/CN)
-        # Gap từ cuối tuần sang tuần mới là BÌNH THƯỜNG, không cần alert
+        # Kiểm tra nếu gap BẮT ĐẦU trong thời gian đóng cửa
+        # Gap ngoài giờ giao dịch hoặc từ cuối tuần là BÌNH THƯỜNG, không cần alert
         if self._is_market_closed_time(start_time):
+            # Xác định lý do
+            start_weekday = start_time.weekday()
+            start_hour = start_time.hour
+
+            if start_weekday == 6:
+                reason = "Chủ nhật - thị trường đóng cửa"
+            elif start_weekday == 5 and start_hour >= 6:
+                reason = "Thứ 7 - thị trường đóng cửa"
+            elif start_weekday in [0, 1, 2, 3, 4] and start_hour < 6:
+                reason = "Ngoài giờ giao dịch (trước 6h sáng)"
+            else:
+                reason = "Thị trường đóng cửa"
+
             self.logger.info(
-                f"Bỏ qua cảnh báo gap_detected [{start_time.strftime('%Y-%m-%d %H:%M')} - {end_time.strftime('%Y-%m-%d %H:%M')}] "
-                f"({gap_minutes} phút) - Gap bắt đầu trong thời gian thị trường đóng cửa (T7/CN)"
+                f"Bỏ qua cảnh báo gap [{start_time.strftime('%Y-%m-%d %H:%M')} - {end_time.strftime('%Y-%m-%d %H:%M')}] "
+                f"({gap_minutes} phút) - {reason}"
             )
             return
 
         alert_key = f"gap_detected_{start_time.strftime('%Y%m%d%H%M')}"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        message = f"**PHÁT HIỆN KHOẢNG TRỐNG DỮ LIỆU**\n"
+        message = f"**GOLD - PHÁT HIỆN KHOẢNG TRỐNG DỮ LIỆU**\n"
         message += f"Phát hiện lúc: {timestamp}\n"
         message += f"Khoảng trống từ: {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         message += f"Đến: {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"

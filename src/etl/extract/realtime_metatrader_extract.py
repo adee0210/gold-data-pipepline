@@ -430,16 +430,30 @@ class RealtimeMetatraderExtract:
                 (records[-1]["datetime"] + timedelta(minutes=1), end_time)
             )
 
-        # Lọc bỏ các khoảng trống BẮT ĐẦU trong T7/CN (thị trường đóng cửa)
-        # Gap từ cuối tuần sang tuần mới là bình thường
+        # Lọc bỏ các khoảng trống BẮT ĐẦU ngoài giờ giao dịch
+        # Gap ngoài giờ giao dịch hoặc từ cuối tuần là bình thường
         filtered_missing_ranges = []
         for start_gap, end_gap in missing_ranges:
             # Kiểm tra nếu gap BẮT ĐẦU trong thời gian thị trường đóng cửa
             if self.discord_alert._is_market_closed_time(start_gap):
                 gap_minutes = int((end_gap - start_gap).total_seconds() // 60) + 1
+
+                # Xác định lý do để log rõ ràng
+                start_weekday = start_gap.weekday()
+                start_hour = start_gap.hour
+
+                if start_weekday == 6:
+                    reason = "Chủ nhật - thị trường đóng cửa"
+                elif start_weekday == 5 and start_hour >= 6:
+                    reason = "Thứ 7 - thị trường đóng cửa"
+                elif start_weekday in [0, 1, 2, 3, 4] and start_hour < 6:
+                    reason = "Ngoài giờ giao dịch (trước 6h sáng)"
+                else:
+                    reason = "Thị trường đóng cửa"
+
                 self.logger.info(
-                    f"Bỏ qua khoảng trống từ {start_gap} đến {end_gap} ({gap_minutes} phút) "
-                    f"- Gap bắt đầu trong thời gian thị trường đóng cửa (T7/CN)"
+                    f"Bỏ qua khoảng trống từ {start_gap.strftime('%Y-%m-%d %H:%M')} "
+                    f"đến {end_gap.strftime('%Y-%m-%d %H:%M')} ({gap_minutes} phút) - {reason}"
                 )
                 continue
             filtered_missing_ranges.append((start_gap, end_gap))
@@ -449,7 +463,7 @@ class RealtimeMetatraderExtract:
         if not missing_ranges:
             self.logger.info(
                 f"Không tìm thấy khoảng trống dữ liệu trong {lookback_hours} giờ qua "
-                f"(đã loại bỏ T7/CN)"
+                f"(đã loại bỏ gap ngoài giờ giao dịch)"
             )
             return pd.DataFrame()
 
