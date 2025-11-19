@@ -5,7 +5,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PID_FILE="$SCRIPT_DIR/gold_data_project.pid"
-LOG_FILE="$SCRIPT_DIR/main.log"
+NOHUP_LOG="$SCRIPT_DIR/nohup.out"
 
 PYTHON_CMD="$SCRIPT_DIR/.venv/bin/python $SCRIPT_DIR/src/main.py"
 
@@ -22,9 +22,12 @@ start() {
     fi
 
     echo "Starting gold_data_project..."
-    nohup $PYTHON_CMD > "$LOG_FILE" 2>&1 &
+    # Không redirect vào main.log - để Python logger tự quản lý
+    # Output/error của process sẽ vào nohup.out (nếu cần debug nohup)
+    nohup $PYTHON_CMD > /dev/null 2>&1 &
     echo $! > "$PID_FILE"
     echo "gold_data_project started (PID: $(cat "$PID_FILE"))"
+    echo "Logs are managed by Python logger in main.log with rotation"
 }
 
 stop() {
