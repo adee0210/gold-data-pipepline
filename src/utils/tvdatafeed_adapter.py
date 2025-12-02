@@ -33,7 +33,7 @@ class TVDataFeedAdapter:
         self.retry_delay = retry_delay
 
     def get_realtime_data(
-        self, symbol, exchange, interval=Interval.in_1_minute, n_bars=5000
+        self, symbol, exchange, interval=Interval.in_1_minute, n_bars=10
     ):
         """
         Lấy dữ liệu realtime từ TradingView với retry logic
@@ -42,7 +42,7 @@ class TVDataFeedAdapter:
             symbol: Symbol name (e.g., XAUUSD)
             exchange: Exchange name (e.g., OANDA)
             interval: Time interval
-            n_bars: Number of bars to fetch
+            n_bars: Number of bars to fetch (default: 10 cho realtime)
 
         Returns:
             DataFrame hoặc None nếu thất bại sau tất cả retries

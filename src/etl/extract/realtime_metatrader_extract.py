@@ -47,7 +47,9 @@ class RealtimeMetatraderExtract:
         else:
             return None
 
-    def fetch_realtime_data(self, start_time: datetime | None = None) -> pd.DataFrame:
+    def fetch_realtime_data(
+        self, start_time: datetime | None = None, n_bars: int = None
+    ) -> pd.DataFrame:
         if start_time:
             # Lấy từ phút tiếp theo sau start_time, nhưng kiểm tra không lấy từ tương lai
             now = datetime.now()
@@ -60,17 +62,27 @@ class RealtimeMetatraderExtract:
                 )
                 return pd.DataFrame()
 
+            # Tính số bars cần lấy nếu không được chỉ định
+            if n_bars is None:
+                minutes_diff = (
+                    int((now - fetch_from).total_seconds() / 60) + 5
+                )  # +5 buffer
+                n_bars = max(10, min(minutes_diff, 5000))  # Giới hạn 10-5000 bars
+
             self.logger.info(
-                f"Fetching TradingView data for {self.symbol}@{self.exchange} since {fetch_from}"
+                f"Fetching TradingView data for {self.symbol}@{self.exchange} since {fetch_from} (n_bars={n_bars})"
             )
         else:
             fetch_from = None
+            # Mặc định lấy 10 bars gần nhất cho realtime
+            if n_bars is None:
+                n_bars = 10
             self.logger.info(
-                f"Fetching recent TradingView data for {self.symbol}@{self.exchange}"
+                f"Fetching recent TradingView data for {self.symbol}@{self.exchange} (n_bars={n_bars})"
             )
 
         df = self.tv_adapter.get_realtime_data(
-            symbol=self.symbol, exchange=self.exchange
+            symbol=self.symbol, exchange=self.exchange, n_bars=n_bars
         )
         if df is None or df.empty:
             self.logger.warning("No data returned from TV adapter")
@@ -112,9 +124,9 @@ class RealtimeMetatraderExtract:
 
         self.logger.info(f"Fetching current minute candle for {current_minute}")
 
-        # Lấy data từ 2 phút gần nhất để đảm bảo có dữ liệu phút hiện tại
+        # Lấy data từ 2 phút gần nhất, chỉ cần 3 bars (hiện tại + 2 phút trước)
         fetch_from = current_minute - timedelta(minutes=2)
-        df = self.fetch_realtime_data(fetch_from)
+        df = self.fetch_realtime_data(fetch_from, n_bars=3)
 
         if df.empty:
             return pd.DataFrame()
@@ -164,12 +176,16 @@ class RealtimeMetatraderExtract:
             )
             return pd.DataFrame()
 
+        # Tính số bars cần lấy
+        minutes_missing = int((current_minute - latest_minute).total_seconds() / 60)
+        n_bars = min(minutes_missing + 5, 5000)  # +5 buffer, max 5000
+
         self.logger.info(
-            f"Fetching missing candles from {next_minute} to {current_minute - timedelta(minutes=1)}"
+            f"Fetching missing candles from {next_minute} to {current_minute - timedelta(minutes=1)} (n_bars={n_bars})"
         )
 
         # Lấy data từ next_minute và filter để chỉ lấy các nến đã hoàn thành
-        df = self.fetch_realtime_data(latest_minute)
+        df = self.fetch_realtime_data(latest_minute, n_bars=n_bars)
 
         if df.empty:
             return pd.DataFrame()
@@ -210,9 +226,9 @@ class RealtimeMetatraderExtract:
             f"Fetching final state of previous minute candle for {previous_minute}"
         )
 
-        # Lấy data gần nhất để đảm bảo có nến phút trước
+        # Lấy data gần nhất, chỉ cần 3 bars
         fetch_from = previous_minute - timedelta(minutes=1)
-        df = self.fetch_realtime_data(fetch_from)
+        df = self.fetch_realtime_data(fetch_from, n_bars=3)
 
         if df.empty:
             self.logger.warning("No data available for previous minute check")
