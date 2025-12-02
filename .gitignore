@@ -2,3 +2,5 @@
 *.log
 *.csv
 main.log
+main.log.*
+nohup.out

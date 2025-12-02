@@ -9,6 +9,10 @@ class LoggerConfig:
     def logger_config(
         log_name: str, log_file: str = "main.log", log_level: int = logging.INFO
     ):
+        # Lấy thư mục gốc của project (đảm bảo log luôn nằm trong project)
+        # __file__ -> config/logger_config.py
+        # dirname -> config/
+        # dirname -> project root
         root_dir = os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         )
