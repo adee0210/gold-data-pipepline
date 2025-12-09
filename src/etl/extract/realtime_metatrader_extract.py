@@ -7,7 +7,6 @@ from config.mongo_config import MongoConfig
 from config.variable_config import GOLD_DATA_CONFIG, TRADINGVIEW_CONFIG
 from src.utils.tvdatafeed_adapter import TVDataFeedAdapter
 from tvDatafeed import TvDatafeed, Interval
-import os
 
 
 class RealtimeMetatraderExtract:
@@ -630,8 +629,19 @@ class RealtimeMetatraderExtract:
             self.logger.info(f"Sử dụng phương thức duy trì {n_bars} bars mới nhất")
             return self.maintain_latest_n_bars(n_bars)
 
-        # Phương thức cũ: kiểm tra và điền các khoảng trống dữ liệu
-        # Kiểm tra dữ liệu thiếu trong 1 giờ gần đây (rút gọn thành 1 giờ thay vì 24 giờ để không ảnh hưởng hiệu suất)
+        missing_candles = self.get_missing_minute_candles()
+        if not missing_candles.empty:
+            # Lọc chỉ lấy dữ liệu mới
+            filtered_missing_candles = self.filter_existing_data(missing_candles)
+            if not filtered_missing_candles.empty:
+                self.logger.info(
+                    f"Extracted {len(filtered_missing_candles)} new missing completed candles"
+                )
+                return filtered_missing_candles
+            else:
+                self.logger.info("No new candles to add after filtering")
+
+        # 2) Nếu không có nến phút thiếu, kiểm tra các khoảng trống trong lookback_hours
         gap_df = self.check_and_fix_gaps(lookback_hours=1)
         if not gap_df.empty:
             # Lọc chỉ lấy dữ liệu mới
@@ -644,19 +654,5 @@ class RealtimeMetatraderExtract:
             else:
                 self.logger.info("No new records to add after filtering")
 
-        # Nếu không có khoảng trống lớn, lấy các nến phút gần nhất đã hoàn thành
-        missing_candles = self.get_missing_minute_candles()
-        if not missing_candles.empty:
-            # Lọc chỉ lấy dữ liệu mới
-            filtered_missing_candles = self.filter_existing_data(missing_candles)
-            if not filtered_missing_candles.empty:
-                self.logger.info(
-                    f"Extracted {len(filtered_missing_candles)} new missing completed candles"
-                )
-                return filtered_missing_candles
-            else:
-                self.logger.info("No new candles to add after filtering")
-        else:
-            self.logger.info("No missing candles found - data is up to date")
-
+        self.logger.info("No new realtime records found - data is up to date")
         return pd.DataFrame()
