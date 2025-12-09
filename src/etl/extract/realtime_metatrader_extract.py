@@ -4,9 +4,8 @@ from datetime import datetime, timedelta
 from typing import Optional
 from config.logger_config import LoggerConfig
 from config.mongo_config import MongoConfig
-from config.variable_config import GOLD_DATA_CONFIG
+from config.variable_config import GOLD_DATA_CONFIG, TRADINGVIEW_CONFIG
 from src.utils.tvdatafeed_adapter import TVDataFeedAdapter
-from src.utils.discord_alert_util import DiscordAlertUtil
 from tvDatafeed import TvDatafeed, Interval
 import os
 
@@ -29,13 +28,8 @@ class RealtimeMetatraderExtract:
             GOLD_DATA_CONFIG["collection"]
         )
 
-        # Khởi tạo Discord alert utility
-        self.discord_alert = DiscordAlertUtil()
-
-        self.symbol = symbol or os.getenv("TV_SYMBOL", "XAUUSD")
-        self.exchange = exchange or os.getenv(
-            "TV_EXCHANGE", "OANDA"
-        )  # OANDA có volume data
+        self.symbol = symbol or TRADINGVIEW_CONFIG["symbol"]
+        self.exchange = exchange or TRADINGVIEW_CONFIG["exchange"]
         self.tv_adapter = TVDataFeedAdapter(tv_username, tv_password)
 
     def get_latest_minute(self):
@@ -67,16 +61,19 @@ class RealtimeMetatraderExtract:
                 minutes_diff = (
                     int((now - fetch_from).total_seconds() / 60) + 5
                 )  # +5 buffer
-                n_bars = max(10, min(minutes_diff, 5000))  # Giới hạn 10-5000 bars
+                n_bars = max(
+                    TRADINGVIEW_CONFIG["default_n_bars"],
+                    min(minutes_diff, TRADINGVIEW_CONFIG["max_n_bars"]),
+                )
 
             self.logger.info(
                 f"Fetching TradingView data for {self.symbol}@{self.exchange} since {fetch_from} (n_bars={n_bars})"
             )
         else:
             fetch_from = None
-            # Mặc định lấy 10 bars gần nhất cho realtime
+            # Mặc định lấy default_n_bars gần nhất cho realtime
             if n_bars is None:
-                n_bars = 10
+                n_bars = TRADINGVIEW_CONFIG["default_n_bars"]
             self.logger.info(
                 f"Fetching recent TradingView data for {self.symbol}@{self.exchange} (n_bars={n_bars})"
             )
@@ -86,8 +83,6 @@ class RealtimeMetatraderExtract:
         )
         if df is None or df.empty:
             self.logger.warning("No data returned from TV adapter")
-            # KHÔNG gửi alert ngay lập tức - để logic check_and_alert_no_new_data xử lý
-            # Alert chỉ được gửi sau 1 phút không có data mới
             return pd.DataFrame(
                 columns=[
                     "datetime",
@@ -95,7 +90,7 @@ class RealtimeMetatraderExtract:
                     "high",
                     "low",
                     "close",
-                    "volume",  # Đổi từ vol thành volume để match historical schema
+                    "volume",
                 ]
             )
 
@@ -124,9 +119,9 @@ class RealtimeMetatraderExtract:
 
         self.logger.info(f"Fetching current minute candle for {current_minute}")
 
-        # Lấy data từ 2 phút gần nhất, chỉ cần 3 bars (hiện tại + 2 phút trước)
+        # Lấy data từ 2 phút gần nhất, chỉ cần 5000 bars (hiện tại + 2 phút trước)
         fetch_from = current_minute - timedelta(minutes=2)
-        df = self.fetch_realtime_data(fetch_from, n_bars=3)
+        df = self.fetch_realtime_data(fetch_from, n_bars=5000)
 
         if df.empty:
             return pd.DataFrame()
@@ -138,17 +133,9 @@ class RealtimeMetatraderExtract:
             self.logger.info(
                 f"Found current minute candle: close={current_candle.iloc[0]['close']}, volume={current_candle.iloc[0]['volume']}"
             )
-            # Cập nhật thời gian có data thành công
-            self.discord_alert.check_and_alert_no_new_data(
-                source="TradingView_Realtime", current_data_time=current_minute
-            )
             return current_candle
         else:
             self.logger.warning(f"No candle found for current minute {current_minute}")
-            # Kiểm tra và cảnh báo nếu không có data mới
-            self.discord_alert.check_and_alert_no_new_data(
-                source="TradingView_Realtime", current_data_time=None
-            )
             return pd.DataFrame()
 
     def get_missing_minute_candles(self):
@@ -178,7 +165,9 @@ class RealtimeMetatraderExtract:
 
         # Tính số bars cần lấy
         minutes_missing = int((current_minute - latest_minute).total_seconds() / 60)
-        n_bars = min(minutes_missing + 5, 5000)  # +5 buffer, max 5000
+        n_bars = min(
+            minutes_missing + 5, TRADINGVIEW_CONFIG["max_n_bars"]
+        )  # +5 buffer, max from config
 
         self.logger.info(
             f"Fetching missing candles from {next_minute} to {current_minute - timedelta(minutes=1)} (n_bars={n_bars})"
@@ -316,11 +305,6 @@ class RealtimeMetatraderExtract:
                 self.logger.warning(
                     f"Không lấy được dữ liệu từ TradingView cho khoảng {start_time} đến {end_time}"
                 )
-                # Gửi cảnh báo Discord
-                self.discord_alert.alert_no_data_from_source(
-                    source="TradingView_Historical",
-                    error_details=f"Không có dữ liệu cho khoảng {start_time} đến {end_time}",
-                )
                 return None
 
             # Format dữ liệu
@@ -355,18 +339,12 @@ class RealtimeMetatraderExtract:
             self.logger.exception(
                 f"Lỗi khi lấy dữ liệu lịch sử cho khoảng {start_time} đến {end_time}: {e}"
             )
-            # Gửi cảnh báo Discord khi có exception
-            self.discord_alert.alert_data_fetch_error(
-                source="TradingView_Historical",
-                error_message=f"Exception khi lấy dữ liệu cho khoảng {start_time} đến {end_time}: {str(e)}",
-            )
             return None
 
     def check_and_fix_gaps(self, lookback_hours=24, start_date=None, end_date=None):
         """
         Kiểm tra và sửa dữ liệu thiếu trong khoảng thời gian lookback_hours
         hoặc khoảng thời gian cụ thể từ start_date đến end_date
-        Cải tiến: Lọc ra chỉ những dữ liệu còn thiếu thực sự
 
         Args:
             lookback_hours (int): Số giờ cần kiểm tra ngược về quá khứ (khi không chỉ định start_date và end_date)
@@ -446,40 +424,9 @@ class RealtimeMetatraderExtract:
                 (records[-1]["datetime"] + timedelta(minutes=1), end_time)
             )
 
-        # Lọc bỏ các khoảng trống BẮT ĐẦU ngoài giờ giao dịch
-        # Gap ngoài giờ giao dịch hoặc từ cuối tuần là bình thường
-        filtered_missing_ranges = []
-        for start_gap, end_gap in missing_ranges:
-            # Kiểm tra nếu gap BẮT ĐẦU trong thời gian thị trường đóng cửa
-            if self.discord_alert._is_market_closed_time(start_gap):
-                gap_minutes = int((end_gap - start_gap).total_seconds() // 60) + 1
-
-                # Xác định lý do để log rõ ràng
-                start_weekday = start_gap.weekday()
-                start_hour = start_gap.hour
-
-                if start_weekday == 6:
-                    reason = "Chủ nhật - thị trường đóng cửa"
-                elif start_weekday == 5 and start_hour >= 6:
-                    reason = "Thứ 7 - thị trường đóng cửa"
-                elif start_weekday in [0, 1, 2, 3, 4] and start_hour < 6:
-                    reason = "Ngoài giờ giao dịch (trước 6h sáng)"
-                else:
-                    reason = "Thị trường đóng cửa"
-
-                self.logger.info(
-                    f"Bỏ qua khoảng trống từ {start_gap.strftime('%Y-%m-%d %H:%M')} "
-                    f"đến {end_gap.strftime('%Y-%m-%d %H:%M')} ({gap_minutes} phút) - {reason}"
-                )
-                continue
-            filtered_missing_ranges.append((start_gap, end_gap))
-
-        missing_ranges = filtered_missing_ranges
-
         if not missing_ranges:
             self.logger.info(
-                f"Không tìm thấy khoảng trống dữ liệu trong {lookback_hours} giờ qua "
-                f"(đã loại bỏ gap ngoài giờ giao dịch)"
+                f"Không tìm thấy khoảng trống dữ liệu trong {lookback_hours} giờ qua"
             )
             return pd.DataFrame()
 
@@ -490,12 +437,6 @@ class RealtimeMetatraderExtract:
         self.logger.info(
             f"Tìm thấy {len(missing_ranges)} khoảng trống với tổng cộng {int(total_missing_minutes)} phút dữ liệu bị thiếu"
         )
-
-        # Gửi cảnh báo Discord về các khoảng trống lớn (> 5 phút)
-        for start_gap, end_gap in missing_ranges:
-            gap_minutes = int((end_gap - start_gap).total_seconds() // 60) + 1
-            if gap_minutes > 5:  # Chỉ cảnh báo khoảng trống lớn hơn 5 phút
-                self.discord_alert.alert_gap_detected(start_gap, end_gap, gap_minutes)
 
         # Lấy dữ liệu cho từng khoảng trống
         all_gap_data = []
@@ -557,11 +498,6 @@ class RealtimeMetatraderExtract:
 
             if df is None or df.empty:
                 self.logger.error("Không lấy được dữ liệu từ TradingView")
-                # Gửi cảnh báo Discord
-                self.discord_alert.alert_no_data_from_source(
-                    source="TradingView_LatestBars",
-                    error_details=f"Không lấy được {n_bars} bars mới nhất",
-                )
                 return None, None
 
             # Format dữ liệu
@@ -589,11 +525,6 @@ class RealtimeMetatraderExtract:
 
         except Exception as e:
             self.logger.exception(f"Lỗi khi lấy dữ liệu từ TradingView: {e}")
-            # Gửi cảnh báo Discord về exception
-            self.discord_alert.alert_data_fetch_error(
-                source="TradingView_LatestBars",
-                error_message=f"Exception khi lấy {n_bars} bars: {str(e)}",
-            )
             return None, None
 
     def maintain_latest_n_bars(self, n_bars=5000):

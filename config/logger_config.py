@@ -7,15 +7,29 @@ class LoggerConfig:
 
     @staticmethod
     def logger_config(
-        log_name: str, log_file: str = "main.log", log_level: int = logging.INFO
+        log_name: str,
+        log_file: str = None,
+        log_level: int = None,
+        max_bytes: int = None,
+        backup_count: int = None,
     ):
+        # Import here to avoid circular dependency
+        from config.variable_config import LOGGING_CONFIG
+
+        # Sử dụng giá trị từ config nếu không được truyền vào
+        log_file = log_file or LOGGING_CONFIG["log_file"]
+        log_level = log_level or getattr(
+            logging, LOGGING_CONFIG["log_level"], logging.INFO
+        )
+        max_bytes = max_bytes or LOGGING_CONFIG["max_bytes"]
+        backup_count = backup_count or LOGGING_CONFIG["backup_count"]
+
         # Lấy thư mục gốc của project (đảm bảo log luôn nằm trong project)
         # __file__ -> config/logger_config.py
-        # dirname -> config/
-        # dirname -> project root
-        root_dir = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
+        # dirname(__file__) -> /path/to/project/config
+        # dirname(dirname(__file__)) -> /path/to/project
+        config_dir = os.path.dirname(os.path.abspath(__file__))
+        root_dir = os.path.dirname(config_dir)
         base_path = os.path.join(root_dir, log_file)
 
         # formatter
@@ -23,13 +37,11 @@ class LoggerConfig:
             "%(asctime)s - %(processName)s - %(levelname)s - %(name)s - %(message)s"
         )
 
-        # RotatingFileHandler: Tự động rotate khi file đạt 50MB
-        # Giữ lại 5 file backup (main.log.1, main.log.2, ..., main.log.5)
-        # Tổng cộng tối đa 300MB (50MB x 6 files)
+        # RotatingFileHandler: Tự động rotate khi file đạt maxBytes
         file_handler = RotatingFileHandler(
             filename=base_path,
-            maxBytes=10 * 1024 * 1024,  # 50MB
-            backupCount=5,  # Giữ 5 file backup
+            maxBytes=max_bytes,
+            backupCount=backup_count,
             encoding="utf-8",
         )
         file_handler.setFormatter(formatter)

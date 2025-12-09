@@ -13,8 +13,8 @@ class TVDataFeedAdapter:
         self,
         username: Optional[str] = None,
         password: Optional[str] = None,
-        max_retries: int = 3,
-        retry_delay: float = 2.0,
+        max_retries: int = None,
+        retry_delay: float = None,
     ):
         """
         Initialize TradingView Data Feed Adapter với retry logic
@@ -22,18 +22,21 @@ class TVDataFeedAdapter:
         Args:
             username: TradingView username (optional)
             password: TradingView password (optional)
-            max_retries: Số lần retry tối đa khi gặp lỗi (default: 3)
-            retry_delay: Thời gian chờ giữa các lần retry (seconds, default: 2.0)
+            max_retries: Số lần retry tối đa khi gặp lỗi (default từ config)
+            retry_delay: Thời gian chờ giữa các lần retry (seconds, default từ config)
         """
+        # Import here to avoid circular dependency
+        from config.variable_config import TRADINGVIEW_CONFIG
+
         # TvDatafeed expects string credentials; pass empty string when None to satisfy type checks
         self.username = username or ""
         self.password = password or ""
         self.tv = TvDatafeed(self.username, self.password)
-        self.max_retries = max_retries
-        self.retry_delay = retry_delay
+        self.max_retries = max_retries or TRADINGVIEW_CONFIG["max_retries"]
+        self.retry_delay = retry_delay or TRADINGVIEW_CONFIG["retry_delay"]
 
     def get_realtime_data(
-        self, symbol, exchange, interval=Interval.in_1_minute, n_bars=10
+        self, symbol, exchange, interval=Interval.in_1_minute, n_bars=None
     ):
         """
         Lấy dữ liệu realtime từ TradingView với retry logic
@@ -42,11 +45,17 @@ class TVDataFeedAdapter:
             symbol: Symbol name (e.g., XAUUSD)
             exchange: Exchange name (e.g., OANDA)
             interval: Time interval
-            n_bars: Number of bars to fetch (default: 10 cho realtime)
+            n_bars: Number of bars to fetch (default từ config)
 
         Returns:
             DataFrame hoặc None nếu thất bại sau tất cả retries
         """
+        # Import here to avoid circular dependency
+        from config.variable_config import TRADINGVIEW_CONFIG
+
+        if n_bars is None:
+            n_bars = TRADINGVIEW_CONFIG["default_n_bars"]
+
         last_exception = None
 
         for attempt in range(self.max_retries):
