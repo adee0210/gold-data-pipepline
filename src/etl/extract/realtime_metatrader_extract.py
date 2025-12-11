@@ -110,17 +110,15 @@ class RealtimeMetatraderExtract:
 
     def get_current_minute_candle(self):
         """Lấy nến phút hiện tại để upsert liên tục"""
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
-        # Lấy thời gian hiện tại và làm tròn về phút
         now = datetime.now()
         current_minute = now.replace(second=0, microsecond=0)
 
         self.logger.info(f"Fetching current minute candle for {current_minute}")
 
-        # Lấy data từ 2 phút gần nhất, chỉ cần 5000 bars (hiện tại + 2 phút trước)
-        fetch_from = current_minute - timedelta(minutes=2)
-        df = self.fetch_realtime_data(fetch_from, n_bars=5000)
+        # Lấy 3 bars gần nhất
+        df = self.fetch_realtime_data(start_time=None, n_bars=3)
 
         if df.empty:
             return pd.DataFrame()
@@ -137,103 +135,26 @@ class RealtimeMetatraderExtract:
             self.logger.warning(f"No candle found for current minute {current_minute}")
             return pd.DataFrame()
 
-    def get_missing_minute_candles(self):
-        """Lấy các nến phút còn thiếu từ lịch sử tới hiện tại"""
-        from datetime import datetime, timedelta
+    def get_specific_minute_candle(self, target_minute):
+        """Lấy nến của phút cụ thể"""
+        self.logger.info(f"Fetching specific minute candle for {target_minute}")
 
-        self.logger.info("Checking for missing minute candles...")
-        latest_minute = self.get_latest_minute()
-
-        if latest_minute is None:
-            self.logger.warning(
-                "No historical data found, cannot determine missing candles"
-            )
-            return pd.DataFrame()
-
-        now = datetime.now()
-        current_minute = now.replace(second=0, microsecond=0)
-
-        # Tính số phút thiếu từ latest_minute + 1 phút tới current_minute (không bao gồm current_minute)
-        next_minute = latest_minute + timedelta(minutes=1)
-
-        if next_minute >= current_minute:
-            self.logger.info(
-                f"No missing candles: latest={latest_minute}, current={current_minute}"
-            )
-            return pd.DataFrame()
-
-        # Tính số bars cần lấy
-        minutes_missing = int((current_minute - latest_minute).total_seconds() / 60)
-        n_bars = min(
-            minutes_missing + 5, TRADINGVIEW_CONFIG["max_n_bars"]
-        )  # +5 buffer, max from config
-
-        self.logger.info(
-            f"Fetching missing candles from {next_minute} to {current_minute - timedelta(minutes=1)} (n_bars={n_bars})"
-        )
-
-        # Lấy data từ next_minute và filter để chỉ lấy các nến đã hoàn thành
-        df = self.fetch_realtime_data(latest_minute, n_bars=n_bars)
+        # Lấy 3 bars gần nhất
+        df = self.fetch_realtime_data(start_time=None, n_bars=3)
 
         if df.empty:
             return pd.DataFrame()
 
-        # Lọc chỉ lấy các nến từ next_minute tới trước current_minute (đã hoàn thành)
-        missing_candles = df[
-            (df["datetime"] >= next_minute) & (df["datetime"] < current_minute)
-        ]
+        # Lọc chỉ lấy nến của phút cần tìm
+        target_candle = df[df["datetime"] == target_minute]
 
-        self.logger.info(f"Found {len(missing_candles)} missing completed candles")
-        return missing_candles
-
-    def is_data_up_to_date(self):
-        """Kiểm tra xem data đã cập nhật tới hiện tại chưa"""
-        from datetime import datetime, timedelta
-
-        latest_minute = self.get_latest_minute()
-        if latest_minute is None:
-            return False
-
-        now = datetime.now()
-        current_minute = now.replace(second=0, microsecond=0)
-
-        # Data được coi là up-to-date nếu latest_minute >= current_minute - 1 phút
-        # (vì nến hiện tại chưa hoàn thành)
-        return latest_minute >= (current_minute - timedelta(minutes=1))
-
-    def get_previous_minute_final_candle(self):
-        """Lấy nến cuối cùng của phút trước đó để cập nhật trạng thái cuối cùng"""
-        from datetime import datetime, timedelta
-
-        # Lấy thời gian hiện tại và phút trước
-        now = datetime.now()
-        current_minute = now.replace(second=0, microsecond=0)
-        previous_minute = current_minute - timedelta(minutes=1)
-
-        self.logger.info(
-            f"Fetching final state of previous minute candle for {previous_minute}"
-        )
-
-        # Lấy data gần nhất, chỉ cần 3 bars
-        fetch_from = previous_minute - timedelta(minutes=1)
-        df = self.fetch_realtime_data(fetch_from, n_bars=3)
-
-        if df.empty:
-            self.logger.warning("No data available for previous minute check")
-            return pd.DataFrame()
-
-        # Lọc lấy nến phút trước
-        previous_candle = df[df["datetime"] == previous_minute]
-
-        if not previous_candle.empty:
+        if not target_candle.empty:
             self.logger.info(
-                f"Found previous minute final candle: {previous_minute}, close={previous_candle.iloc[0]['close']}, volume={previous_candle.iloc[0]['volume']}"
+                f"Found target minute candle: close={target_candle.iloc[0]['close']}, volume={target_candle.iloc[0]['volume']}"
             )
-            return previous_candle
+            return target_candle
         else:
-            self.logger.warning(
-                f"No candle found for previous minute {previous_minute}"
-            )
+            self.logger.warning(f"No candle found for target minute {target_minute}")
             return pd.DataFrame()
 
     def fetch_historical_range(self, start_time, end_time):
@@ -471,114 +392,6 @@ class RealtimeMetatraderExtract:
             self.logger.warning("Không lấy được dữ liệu thiếu nào!")
             return pd.DataFrame()
 
-    def fetch_latest_n_bars(self, n_bars=5000):
-        """
-        Lấy n_bars dữ liệu mới nhất từ TradingView
-
-        Args:
-            n_bars (int): Số lượng bars cần lấy
-
-        Returns:
-            tuple: (DataFrame chứa dữ liệu mới nhất, datetime cũ nhất của dữ liệu)
-        """
-        self.logger.info(f"Lấy {n_bars} bars dữ liệu mới nhất từ TradingView")
-
-        try:
-            # Khởi tạo TvDatafeed
-            tv = TvDatafeed()
-
-            # Lấy dữ liệu mới nhất
-            df = tv.get_hist(
-                symbol=self.symbol,
-                exchange=self.exchange,
-                interval=Interval.in_1_minute,
-                n_bars=n_bars,
-            )
-
-            if df is None or df.empty:
-                self.logger.error("Không lấy được dữ liệu từ TradingView")
-                return None, None
-
-            # Format dữ liệu
-            df = df.reset_index()
-
-            # Tạo trường datetime
-            df["datetime"] = pd.to_datetime(df["datetime"])
-
-            # Đổi tên volume nếu cần
-            if "volume" in df.columns:
-                # Giữ nguyên nếu đã có tên đúng
-                pass
-            else:
-                # Đổi tên từ vol sang volume nếu cần thiết
-                df = df.rename(columns={"vol": "volume"})
-
-            # Lấy thời điểm cũ nhất và mới nhất của dữ liệu
-            oldest_datetime = df["datetime"].min()
-            newest_datetime = df["datetime"].max()
-
-            self.logger.info(f"Đã lấy được {len(df)} records từ TradingView")
-            self.logger.info(f"Dữ liệu từ {oldest_datetime} đến {newest_datetime}")
-
-            return df, oldest_datetime
-
-        except Exception as e:
-            self.logger.exception(f"Lỗi khi lấy dữ liệu từ TradingView: {e}")
-            return None, None
-
-    def maintain_latest_n_bars(self, n_bars=5000):
-        """
-        Duy trì chính xác n_bars mới nhất trong database
-        và giữ lại dữ liệu cũ hơn thời điểm cũ nhất của n_bars
-
-        Args:
-            n_bars (int): Số lượng bars mới nhất cần duy trì
-
-        Returns:
-            DataFrame: DataFrame chứa dữ liệu mới cần thêm vào database
-        """
-        self.logger.info(f"Bắt đầu cập nhật và duy trì {n_bars} bars mới nhất")
-
-        # Lấy dữ liệu mới nhất
-        df, oldest_datetime = self.fetch_latest_n_bars(n_bars)
-
-        if df is None or df.empty or oldest_datetime is None:
-            self.logger.error("Không lấy được dữ liệu mới nhất từ TradingView")
-            return pd.DataFrame()
-
-        # Lấy danh sách datetime của n_bars mới
-        new_datetimes = df["datetime"].tolist()
-
-        # Xóa dữ liệu trong khoảng thời gian của n_bars mới nhưng không thuộc n_bars mới
-        # Tìm số lượng records sẽ bị xóa (nếu có)
-        now = datetime.now()
-        count_to_delete = self.gold_collection.count_documents(
-            {
-                "datetime": {"$gte": oldest_datetime, "$lte": now},
-                "datetime": {"$nin": new_datetimes},
-            }
-        )
-
-        if count_to_delete > 0:
-            self.logger.info(
-                f"Sẽ xóa {count_to_delete} records cũ trong khoảng thời gian của {n_bars} bars mới"
-            )
-            # Thực hiện xóa nếu có records cần xóa
-            result = self.gold_collection.delete_many(
-                {
-                    "datetime": {"$gte": oldest_datetime, "$lte": now},
-                    "datetime": {"$nin": new_datetimes},
-                }
-            )
-            self.logger.info(f"Đã xóa {result.deleted_count} records cũ")
-        else:
-            self.logger.info(
-                f"Không có records cũ cần xóa trong khoảng thời gian của {n_bars} bars mới"
-            )
-
-        # Bây giờ kiểm tra xem records nào trong df đã tồn tại trong database
-        return self.filter_existing_data(df)
-
     def filter_existing_data(self, df):
         """
         Lọc dữ liệu mới từ DataFrame, chỉ giữ lại các records chưa tồn tại trong DB
@@ -610,49 +423,3 @@ class RealtimeMetatraderExtract:
             f"Từ {len(df)} records, có {len(new_df)} records mới cần thêm vào database"
         )
         return new_df
-
-    def realtime_extract(self, use_latest_n_bars=False, n_bars=5000):
-        """
-        Extract dữ liệu realtime: ưu tiên lấy các nến thiếu trước
-
-        Args:
-            use_latest_n_bars (bool): Nếu True, sẽ duy trì chính xác n_bars mới nhất
-            n_bars (int): Số lượng bars mới nhất cần duy trì nếu use_latest_n_bars=True
-
-        Returns:
-            DataFrame: DataFrame chứa dữ liệu mới cần thêm vào database
-        """
-        self.logger.info("Extracting realtime metatrader data ...")
-
-        # Phương thức mới: duy trì chính xác n_bars mới nhất
-        if use_latest_n_bars:
-            self.logger.info(f"Sử dụng phương thức duy trì {n_bars} bars mới nhất")
-            return self.maintain_latest_n_bars(n_bars)
-
-        missing_candles = self.get_missing_minute_candles()
-        if not missing_candles.empty:
-            # Lọc chỉ lấy dữ liệu mới
-            filtered_missing_candles = self.filter_existing_data(missing_candles)
-            if not filtered_missing_candles.empty:
-                self.logger.info(
-                    f"Extracted {len(filtered_missing_candles)} new missing completed candles"
-                )
-                return filtered_missing_candles
-            else:
-                self.logger.info("No new candles to add after filtering")
-
-        # 2) Nếu không có nến phút thiếu, kiểm tra các khoảng trống trong lookback_hours
-        gap_df = self.check_and_fix_gaps(lookback_hours=1)
-        if not gap_df.empty:
-            # Lọc chỉ lấy dữ liệu mới
-            filtered_gap_df = self.filter_existing_data(gap_df)
-            if not filtered_gap_df.empty:
-                self.logger.info(
-                    f"Found {len(filtered_gap_df)} new missing records within the last hour"
-                )
-                return filtered_gap_df
-            else:
-                self.logger.info("No new records to add after filtering")
-
-        self.logger.info("No new realtime records found - data is up to date")
-        return pd.DataFrame()
