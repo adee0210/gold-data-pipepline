@@ -18,31 +18,45 @@ class RealtimeMetatraderPipepline:
 
     def upsert_current_minute(self):
         """Upsert nến phút hiện tại mỗi 2 giây, update phút cũ khi chuyển phút"""
-        current_minute = datetime.now().replace(second=0, microsecond=0)
+        try:
+            current_minute = datetime.now().replace(second=0, microsecond=0)
 
-        # Nếu vừa chuyển phút mới, update lại phút cũ lần cuối
-        if self.last_minute and self.last_minute != current_minute:
-            df_prev = self.extractor.get_specific_minute_candle(self.last_minute)
-            if not df_prev.empty:
-                self.loader.upsert_current_minute_candle(df_prev)
-                print(f"Updated previous minute {self.last_minute} final state")
+            # Nếu vừa chuyển phút mới, update lại phút cũ lần cuối
+            if self.last_minute and self.last_minute != current_minute:
+                try:
+                    df_prev = self.extractor.get_specific_minute_candle(
+                        self.last_minute
+                    )
+                    if not df_prev.empty:
+                        self.loader.upsert_current_minute_candle(df_prev)
+                        print(f"Updated previous minute {self.last_minute} final state")
+                except Exception as e:
+                    print(f"Error updating previous minute: {e}")
+                    # Không raise, tiếp tục với current minute
 
-        # Upsert phút hiện tại
-        df = self.extractor.get_current_minute_candle()
-        if not df.empty:
-            self.loader.upsert_current_minute_candle(df)
-            self.last_minute = current_minute
+            # Upsert phút hiện tại
+            df = self.extractor.get_current_minute_candle()
+            if not df.empty:
+                self.loader.upsert_current_minute_candle(df)
+                self.last_minute = current_minute
+        except Exception as e:
+            print(f"Error in upsert_current_minute: {e}")
+            # Không raise, để loop tiếp tục chạy
 
     def check_and_fix_gaps(self, lookback_hours=24):
         """Kiểm tra và bù dữ liệu thiếu trong N giờ gần nhất"""
-        gap_df = self.extractor.check_and_fix_gaps(lookback_hours=lookback_hours)
-        if not gap_df.empty:
-            self.loader.realtime_load(gap_df)
-            print(
-                f"Fixed {len(gap_df)} missing records in the last {lookback_hours} hours"
-            )
-        else:
-            print(f"No data gaps found in the last {lookback_hours} hours")
+        try:
+            gap_df = self.extractor.check_and_fix_gaps(lookback_hours=lookback_hours)
+            if not gap_df.empty:
+                self.loader.realtime_load(gap_df)
+                print(
+                    f"Fixed {len(gap_df)} missing records in the last {lookback_hours} hours"
+                )
+            else:
+                print(f"No data gaps found in the last {lookback_hours} hours")
+        except Exception as e:
+            print(f"Error checking/fixing gaps: {e}")
+            # Không raise, để pipeline vẫn start được
 
     def run_realtime(self):
         # Bù dữ liệu thiếu khi khởi động (chỉ chạy 1 lần)
