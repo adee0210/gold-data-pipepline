@@ -63,7 +63,6 @@ gold-data-pipepline/
 ├── test_backfill_data.py       # Script bù dữ liệu thiếu thủ công
 ```
 
-## 🚀 Cài đặt và chạy
 
 ### 1. Chuẩn bị môi trường
 
@@ -94,7 +93,7 @@ Chỉnh sửa file `config/variable_config.py` để cấu hình MongoDB, Tradin
 python src/main.py
 ```
 
-## ⚙️ Logic hoạt động
+## Logic hoạt động
 
 ### 1. Pipeline Realtime
 - Thu thập nến đã hoàn thành mỗi phút
@@ -108,24 +107,24 @@ python src/main.py
 ### 3. Backfill thủ công
 - Sử dụng script `test_backfill_data.py` để bù dữ liệu thiếu với số lượng lớn (ví dụ: 10000 bản ghi)
 
-## 📊 Monitoring & Debugging
+## Monitoring & Debugging
 
 - Xem log realtime: `tail -f main.log`
 - Kiểm tra trạng thái dịch vụ: `./run.sh status`
 - Kiểm tra số lượng bản ghi: dùng MongoDB shell
 
-## 🔒 Bảo mật
+##  Bảo mật
 - Không commit thông tin nhạy cảm
 - Đảm bảo database có authentication khi production
 
-## 📝 Changelog
+##  Changelog
 
 ### v1.0.0
-- ✅ Thu thập realtime từ TradingView
-- ✅ Tự động phát hiện và điền khoảng trống
-- ✅ Quản lý log rotation
-- ✅ Script quản lý dịch vụ
-- ✅ Script bù dữ liệu thiếu
+-  Thu thập realtime từ TradingView
+-  Tự động phát hiện và điền khoảng trống
+-  Quản lý log rotation
+-  Script quản lý dịch vụ
+-  Script bù dữ liệu thiếu
 
 ---
 
