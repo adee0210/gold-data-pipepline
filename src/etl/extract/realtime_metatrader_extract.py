@@ -389,7 +389,7 @@ class RealtimeMetatraderExtract:
             )
             return result_df
         else:
-            self.logger.warning("Không lấy được dữ liệu thiếu nào!")
+            self.logger.warning("Không lấy được dữ liệu thiếu nào")
             return pd.DataFrame()
 
     def filter_existing_data(self, df):
