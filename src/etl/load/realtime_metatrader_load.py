@@ -31,14 +31,6 @@ class RealtimeMetatraderLoad:
                 GOLD_DATA_CONFIG["collection"]
             )
 
-            # Tạo index nếu chưa có
-            try:
-                self.gold_collection.create_index(
-                    [("datetime", 1)], unique=True, background=True
-                )
-            except Exception:
-                self.logger.debug("Index creation skipped or failed; continuing")
-
             self.logger.info("MongoDB connection verified")
             return True
         except Exception as e:

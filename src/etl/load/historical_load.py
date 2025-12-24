@@ -33,9 +33,6 @@ class HistoricalLoad:
         ):
             try:
                 chunk_data = chunk.to_dict("records")
-                self.gold_collection.create_index(
-                    [("Date", 1)], unique=True, background=True
-                )
                 self.gold_collection.insert_many(chunk_data, ordered=False)
                 batch_count += 1
                 self.logger.info(
