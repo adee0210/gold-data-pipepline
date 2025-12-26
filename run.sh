@@ -59,6 +59,24 @@ restart() {
     start
 }
 
+monitor() {
+    echo "Starting monitor mode - will auto-restart on crashes..."
+    while true; do
+        if [ -f "$PID_FILE" ]; then
+            PID=$(cat "$PID_FILE")
+            if ! ps -p "$PID" > /dev/null 2>&1; then
+                echo "$(date): Process crashed or stopped, restarting..."
+                rm -f "$PID_FILE"
+                start
+            fi
+        else
+            echo "$(date): No PID file found, starting process..."
+            start
+        fi
+        sleep 10  # Check every 10 seconds
+    done
+}
+
 status() {
     if [ -f "$PID_FILE" ]; then
         PID=$(cat "$PID_FILE")
@@ -82,11 +100,14 @@ case "$1" in
     restart)
         restart
         ;; 
+    monitor)
+        monitor
+        ;; 
     status)
         status
         ;; 
     *)
-        echo "Usage: $0 {start|stop|restart|status}"
+        echo "Usage: $0 {start|stop|restart|monitor|status}"
         exit 1
         ;; 
 esac

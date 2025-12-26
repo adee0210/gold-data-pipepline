@@ -15,15 +15,36 @@ class RealtimeMetatraderLoad:
         self.mongo_config = MongoConfig()
         # Không tạo client ngay, sẽ lazy load khi cần
         self._ensure_connection()
+        self.connection_failures = 0
+        self.last_failure_time = None
 
     def _ensure_connection(self):
         """Lazy connection: đảm bảo có kết nối MongoDB hợp lệ"""
+        import time
+        from datetime import datetime, timedelta
+
+        # Rate limiting: nếu quá nhiều failures trong 1 phút, chờ
+        now = datetime.now()
+        if self.last_failure_time and (now - self.last_failure_time) < timedelta(
+            minutes=1
+        ):
+            if self.connection_failures >= 5:
+                wait_time = min(
+                    60, 2 ** (self.connection_failures - 5)
+                )  # Exponential backoff
+                self.logger.warning(
+                    f"Too many connection failures, waiting {wait_time}s before retry"
+                )
+                time.sleep(wait_time)
+
         try:
             client = self.mongo_config.get_client()
             if client is None:
                 self.logger.warning(
                     "MongoDB client is None, will retry on next operation"
                 )
+                self.connection_failures += 1
+                self.last_failure_time = now
                 return False
 
             self.gold_db = client.get_database(GOLD_DATA_CONFIG["database"])
@@ -32,10 +53,13 @@ class RealtimeMetatraderLoad:
             )
 
             self.logger.info("MongoDB connection verified")
+            self.connection_failures = 0  # Reset on success
             return True
         except Exception as e:
             self.logger.error(f"MongoDB connection failed: {str(e)}")
             self.mongo_config.reset_client()
+            self.connection_failures += 1
+            self.last_failure_time = now
             return False
 
     def chunk_data_frame(self, df, chunk_size):

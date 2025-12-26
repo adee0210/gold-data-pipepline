@@ -207,18 +207,12 @@ class RealtimeMetatraderExtract:
         Helper method để lấy một chunk dữ liệu
         """
         try:
-            # Khởi tạo TvDatafeed
-            tv = TvDatafeed()
-
             # Tính số phút
             time_range_minutes = int((end_time - start_time).total_seconds() // 60) + 1
 
-            # Lấy dữ liệu
-            df = tv.get_hist(
-                symbol=self.symbol,
-                exchange=self.exchange,
-                interval=Interval.in_1_minute,
-                n_bars=time_range_minutes,
+            # Sử dụng adapter để lấy dữ liệu với retry logic
+            df = self.tv_adapter.get_realtime_data(
+                symbol=self.symbol, exchange=self.exchange, n_bars=time_range_minutes
             )
 
             if df is None or df.empty:
@@ -227,12 +221,7 @@ class RealtimeMetatraderExtract:
                 )
                 return None
 
-            # Format dữ liệu
-            df = df.reset_index()
-
-            # Tạo trường datetime đúng từ index
-            df["datetime"] = pd.to_datetime(df["datetime"])
-
+            # Format dữ liệu - adapter đã trả về đúng format
             # Filter dữ liệu trong khoảng
             df = df[(df["datetime"] >= start_time) & (df["datetime"] <= end_time)]
 
@@ -241,14 +230,6 @@ class RealtimeMetatraderExtract:
                     f"Sau khi filter, không còn dữ liệu cho khoảng {start_time} đến {end_time}"
                 )
                 return None
-
-            # Đổi tên volume
-            if "volume" in df.columns:
-                # Giữ nguyên nếu đã có tên đúng
-                pass
-            else:
-                # Đổi tên nếu cần thiết
-                df = df.rename(columns={"vol": "volume"})
 
             self.logger.info(
                 f"Đã lấy được {len(df)} records từ TradingView cho khoảng {start_time} đến {end_time}"

@@ -71,10 +71,41 @@ class RealtimeMetatraderPipepline:
         print("- Auto update previous minute when time changes")
         print("Press Ctrl+C to stop.")
 
+        consecutive_errors = 0
+        max_consecutive_errors = 10  # Restart sau 10 lỗi liên tiếp
+
         try:
             while True:
-                schedule.run_pending()
-                time.sleep(1)
+                try:
+                    schedule.run_pending()
+                    consecutive_errors = 0  # Reset counter khi thành công
+                    time.sleep(1)
+                except KeyboardInterrupt:
+                    print("Received shutdown signal. Exiting...")
+                    sys.exit(0)
+                except Exception as e:
+                    consecutive_errors += 1
+                    print(
+                        f"Unexpected error in main loop (error {consecutive_errors}/{max_consecutive_errors}): {e}"
+                    )
+                    import traceback
+
+                    traceback.print_exc()
+
+                    if consecutive_errors >= max_consecutive_errors:
+                        print(
+                            f"Too many consecutive errors ({consecutive_errors}), restarting pipeline..."
+                        )
+                        # Reset schedule và restart
+                        schedule.clear()
+                        consecutive_errors = 0
+                        self.check_and_fix_gaps(
+                            lookback_hours=1
+                        )  # Kiểm tra gaps ngắn hơn
+                        schedule.every(2).seconds.do(self.upsert_current_minute)
+                        print("Pipeline restarted after errors")
+                    else:
+                        time.sleep(5)  # Chờ 5 giây trước khi tiếp tục
         except KeyboardInterrupt:
             print("Received shutdown signal. Exiting...")
             sys.exit(0)

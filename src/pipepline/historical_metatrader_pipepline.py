@@ -31,15 +31,24 @@ class HistoricalMetatraderPipepline:
 
     def run(self):
         """Chỉ chạy historical extract nếu chưa có dữ liệu"""
-        if self.has_data():
-            self.logger.info("Database đã có dữ liệu, bỏ qua historical extract")
-            return
+        try:
+            if self.has_data():
+                self.logger.info("Database đã có dữ liệu, bỏ qua historical extract")
+                return
 
-        self.logger.info("Database chưa có dữ liệu, bắt đầu chạy historical extract")
-        # Extract dữ liệu
-        metatrader_data = self.extractor.historical_extract()
-        # Load dữ liệu vào MongoDB
-        self.loader.historical_load(metatrader_data)
+            self.logger.info(
+                "Database chưa có dữ liệu, bắt đầu chạy historical extract"
+            )
+            # Extract dữ liệu
+            metatrader_data = self.extractor.historical_extract()
+            # Load dữ liệu vào MongoDB
+            self.loader.historical_load(metatrader_data)
+        except Exception as e:
+            self.logger.error(f"Error in historical pipeline: {e}")
+            import traceback
+
+            traceback.print_exc()
+            # Không raise, để realtime pipeline vẫn chạy được
 
 
 if __name__ == "__main__":
