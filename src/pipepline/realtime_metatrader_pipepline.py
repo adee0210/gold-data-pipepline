@@ -8,10 +8,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"
 
 from src.etl.extract.realtime_metatrader_extract import RealtimeMetatraderExtract
 from src.etl.load.realtime_metatrader_load import RealtimeMetatraderLoad
+from config.logger_config import LoggerConfig
 
 
 class RealtimeMetatraderPipepline:
     def __init__(self):
+        self.logger = LoggerConfig.logger_config("Realtime Pipeline")
         self.extractor = RealtimeMetatraderExtract()
         self.loader = RealtimeMetatraderLoad()
         self.last_minute = None
@@ -41,12 +43,23 @@ class RealtimeMetatraderPipepline:
                 self.last_minute = current_minute
         except Exception as e:
             print(f"Error in upsert_current_minute: {e}")
+            import traceback
+
+            traceback.print_exc()
+            # Log to file
+            self.logger.error(f"Error in upsert_current_minute: {e}", exc_info=True)
             # Không raise, để loop tiếp tục chạy
 
     def check_and_fix_gaps(self, lookback_hours=24):
         """Kiểm tra và bù dữ liệu thiếu trong N giờ gần nhất"""
+        self.logger.info(
+            f"Starting check_and_fix_gaps with lookback_hours={lookback_hours}"
+        )
         try:
             gap_df = self.extractor.check_and_fix_gaps(lookback_hours=lookback_hours)
+            self.logger.info(
+                f"check_and_fix_gaps completed, got {len(gap_df) if not gap_df.empty else 0} gap records"
+            )
             if not gap_df.empty:
                 self.loader.realtime_load(gap_df)
                 print(
@@ -55,15 +68,19 @@ class RealtimeMetatraderPipepline:
             else:
                 print(f"No data gaps found in the last {lookback_hours} hours")
         except Exception as e:
+            self.logger.error(f"Error in check_and_fix_gaps: {e}", exc_info=True)
             print(f"Error checking/fixing gaps: {e}")
             # Không raise, để pipeline vẫn start được
 
     def run_realtime(self):
+        self.logger.info("Starting realtime pipeline initialization...")
+
         # Bù dữ liệu thiếu khi khởi động (chỉ chạy 1 lần)
-        print("Checking for historical data gaps on startup...")
+        self.logger.info("Checking for historical data gaps on startup...")
         self.check_and_fix_gaps(lookback_hours=24)
 
         # Schedule: upsert nến hiện tại mỗi 2 giây
+        self.logger.info("Setting up schedule for upsert operations...")
         schedule.every(2).seconds.do(self.upsert_current_minute)
 
         print("Realtime pipeline started:")
@@ -71,11 +88,20 @@ class RealtimeMetatraderPipepline:
         print("- Auto update previous minute when time changes")
         print("Press Ctrl+C to stop.")
 
+        self.logger.info("Realtime pipeline started successfully")
+        print("DEBUG: Realtime pipeline logging completed")
         consecutive_errors = 0
         max_consecutive_errors = 10  # Restart sau 10 lỗi liên tiếp
+        loop_count = 0
 
         try:
             while True:
+                loop_count += 1
+                if loop_count % 60 == 0:  # Log mỗi phút
+                    self.logger.info(
+                        f"Realtime pipeline still running, loop count: {loop_count}"
+                    )
+
                 try:
                     schedule.run_pending()
                     consecutive_errors = 0  # Reset counter khi thành công
@@ -91,6 +117,11 @@ class RealtimeMetatraderPipepline:
                     import traceback
 
                     traceback.print_exc()
+
+                    # Log to file as well
+                    self.logger.error(
+                        f"Unexpected error in main loop: {e}", exc_info=True
+                    )
 
                     if consecutive_errors >= max_consecutive_errors:
                         print(

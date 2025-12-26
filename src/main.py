@@ -1,6 +1,7 @@
 import sys
 import os
 import signal
+import time
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 
@@ -27,15 +28,24 @@ def main():
         realtime.run_realtime()
     except SystemExit:
         print("System exit requested")
-        sys.exit(0)
+        raise  # Re-raise để vòng lặp ngoài biết
     except Exception as e:
         print(f"Critical error in main pipeline: {e}")
         import traceback
 
         traceback.print_exc()
-        print("Pipeline crashed, but this should not happen. Check logs for details.")
-        sys.exit(1)
+        print("Pipeline crashed, restarting in 10 seconds...")
+        raise  # Raise để restart
 
 
 if __name__ == "__main__":
-    main()
+    while True:
+        try:
+            main()
+            break  # Nếu main() hoàn thành mà không lỗi, thoát
+        except SystemExit:
+            print("Exiting gracefully.")
+            sys.exit(0)
+        except Exception as e:
+            print(f"Restarting due to error: {e}")
+            time.sleep(10)  # Chờ 10 giây trước khi restart

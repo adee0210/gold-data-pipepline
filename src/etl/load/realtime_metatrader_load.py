@@ -13,10 +13,10 @@ class RealtimeMetatraderLoad:
         self.logger = LoggerConfig.logger_config("Load realtime metatrader gold data")
         self.batch_size_extract = GOLD_DATA_CONFIG["batch_size_extract"]
         self.mongo_config = MongoConfig()
-        # Không tạo client ngay, sẽ lazy load khi cần
-        self._ensure_connection()
         self.connection_failures = 0
         self.last_failure_time = None
+        # Không tạo client ngay, sẽ lazy load khi cần
+        self._ensure_connection()
 
     def _ensure_connection(self):
         """Lazy connection: đảm bảo có kết nối MongoDB hợp lệ"""
