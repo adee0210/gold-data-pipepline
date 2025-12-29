@@ -5,14 +5,22 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PID_FILE="$SCRIPT_DIR/gold_data_project.pid"
+LOCK_FILE="$SCRIPT_DIR/gold_data_project.lock"
 NOHUP_LOG="$SCRIPT_DIR/nohup.out"
 
 PYTHON_CMD="$SCRIPT_DIR/.venv/bin/python $SCRIPT_DIR/src/main.py"
 
 start() {
+    # Use flock to prevent multiple instances
+    exec 200>"$LOCK_FILE"
+    if ! flock -n 200; then
+        echo "Another instance is already starting or running"
+        return 1
+    fi
+
     if [ -f "$PID_FILE" ]; then
         PID=$(cat "$PID_FILE")
-        if ps -p "$PID" > /dev/null 2>&1; then
+        if kill -0 "$PID" 2>/dev/null; then
             echo "gold_data_project is already running (PID: $PID)"
             return 1
         else
@@ -37,11 +45,11 @@ stop() {
     fi
 
     PID=$(cat "$PID_FILE")
-    if ps -p "$PID" > /dev/null 2>&1; then
+    if kill -0 "$PID" 2>/dev/null; then
         echo "Stopping gold_data_project (PID: $PID)..."
         kill "$PID"
         sleep 2
-        if ps -p "$PID" > /dev/null 2>&1; then
+        if kill -0 "$PID" 2>/dev/null; then
             echo "Process still running, force killing..."
             kill -9 "$PID"
         fi
@@ -64,7 +72,7 @@ monitor() {
     while true; do
         if [ -f "$PID_FILE" ]; then
             PID=$(cat "$PID_FILE")
-            if ! ps -p "$PID" > /dev/null 2>&1; then
+            if ! kill -0 "$PID" 2>/dev/null; then
                 echo "$(date): Process crashed or stopped, restarting..."
                 rm -f "$PID_FILE"
                 start
@@ -80,7 +88,7 @@ monitor() {
 status() {
     if [ -f "$PID_FILE" ]; then
         PID=$(cat "$PID_FILE")
-        if ps -p "$PID" > /dev/null 2>&1; then
+        if kill -0 "$PID" 2>/dev/null; then
             echo "gold_data_project is running (PID: $PID)"
         else
             echo "PID file exists but process is not running"
