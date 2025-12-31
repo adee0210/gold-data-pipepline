@@ -17,21 +17,24 @@ class TVDataFeedAdapter:
         retry_delay: float = None,
     ):
         """
-        Initialize TradingView Data Feed Adapter với retry logic
+        Khởi tạo TradingView Data Feed Adapter với cơ chế retry
 
-        Args:
-            username: TradingView username (optional)
-            password: TradingView password (optional)
-            max_retries: Số lần retry tối đa khi gặp lỗi (default từ config)
-            retry_delay: Thời gian chờ giữa các lần retry (seconds, default từ config)
+        Tham số:
+            username: TradingView username (tùy chọn)
+            password: TradingView password (tùy chọn)
+            max_retries: Số lần thử lại tối đa khi gặp lỗi (lấy mặc định từ config)
+            retry_delay: Thời gian chờ giữa các lần thử (giây, mặc định từ config)
         """
-        # Import here to avoid circular dependency
+        # Import ở đây để tránh vòng phụ thuộc (circular dependency)
         from config.variable_config import TRADINGVIEW_CONFIG
 
-        # TvDatafeed expects string credentials; pass empty string when None to satisfy type checks
+        # TvDatafeed yêu cầu credential là chuỗi; truyền chuỗi rỗng nếu None để thỏa kiểm tra kiểu
         self.username = username or ""
         self.password = password or ""
         self.tv = TvDatafeed(self.username, self.password)
+        # Import ở đây để tránh vòng phụ thuộc (circular dependency)
+        from config.variable_config import TRADINGVIEW_CONFIG
+
         self.max_retries = max_retries or TRADINGVIEW_CONFIG["max_retries"]
         self.retry_delay = retry_delay or TRADINGVIEW_CONFIG["retry_delay"]
 
@@ -39,18 +42,18 @@ class TVDataFeedAdapter:
         self, symbol, exchange, interval=Interval.in_1_minute, n_bars=None
     ):
         """
-        Lấy dữ liệu realtime từ TradingView với retry logic
+        Lấy dữ liệu realtime từ TradingView với cơ chế thử lại (retry)
 
-        Args:
-            symbol: Symbol name (e.g., XAUUSD)
-            exchange: Exchange name (e.g., OANDA)
-            interval: Time interval
-            n_bars: Number of bars to fetch (default từ config)
+        Tham số:
+            symbol: Tên symbol (ví dụ: XAUUSD)
+            exchange: Tên exchange (ví dụ: OANDA)
+            interval: Khoảng thời gian (interval)
+            n_bars: Số bars cần lấy (mặc định từ config)
 
-        Returns:
-            DataFrame hoặc None nếu thất bại sau tất cả retries
+        Trả về:
+            DataFrame hoặc None nếu thất bại sau tất cả lần thử
         """
-        # Import here to avoid circular dependency
+        # Import ở đây để tránh vòng phụ thuộc (circular dependency)
         from config.variable_config import TRADINGVIEW_CONFIG
 
         if n_bars is None:
@@ -64,7 +67,7 @@ class TVDataFeedAdapter:
                     symbol=symbol, exchange=exchange, interval=interval, n_bars=n_bars
                 )
                 if df is None or df.empty:
-                    raise ValueError("No data returned from TradingView")
+                    raise ValueError("Không có dữ liệu trả về từ TradingView")
 
                 # Đổi tên cột về chuẩn
                 df = df.reset_index()
@@ -95,8 +98,7 @@ class TVDataFeedAdapter:
                 # Thành công - log nếu đã retry
                 if attempt > 0:
                     logger.info(
-                        f"Successfully fetched data for {symbol}@{exchange} "
-                        f"after {attempt + 1} attempt(s)"
+                        f"Đã lấy dữ liệu thành công cho {symbol}@{exchange} sau {attempt + 1} lần thử"
                     )
 
                 return df
@@ -105,39 +107,43 @@ class TVDataFeedAdapter:
                 # Các lỗi network có thể retry
                 last_exception = e
                 if attempt < self.max_retries - 1:
-                    wait_time = self.retry_delay * (2**attempt)  # Exponential backoff
+                    wait_time = self.retry_delay * (
+                        2**attempt
+                    )  # Tăng thời gian chờ theo hàm mũ (exponential backoff)
                     logger.warning(
-                        f"Network error fetching {symbol}@{exchange} "
-                        f"(attempt {attempt + 1}/{self.max_retries}): {e}. "
-                        f"Retrying in {wait_time:.1f}s..."
+                        f"Lỗi mạng khi lấy {symbol}@{exchange} "
+                        f"(lần thử {attempt + 1}/{self.max_retries}): {e}. "
+                        f"Sẽ thử lại sau {wait_time:.1f}s..."
                     )
                     time.sleep(wait_time)
-                    # Recreate connection sau mỗi network error
+                    # Tạo lại kết nối sau mỗi lỗi mạng
                     try:
                         self.tv = TvDatafeed(self.username, self.password)
                     except Exception:
                         pass
                 else:
                     logger.error(
-                        f"Failed to fetch {symbol}@{exchange} after {self.max_retries} attempts: {e}"
+                        f"Không thể lấy dữ liệu cho {symbol}@{exchange} sau {self.max_retries} lần thử: {e}"
                     )
 
             except ValueError as e:
                 # Lỗi "No data returned" - có thể do symbol/exchange sai
                 last_exception = e
-                logger.error(f"ValueError for {symbol}@{exchange}: {e}")
+                logger.error(f"Lỗi ValueError cho {symbol}@{exchange}: {e}")
                 # Không retry cho ValueError
                 break
 
             except Exception as e:
                 # Các lỗi khác - log và break
                 last_exception = e
-                logger.exception(f"Unexpected error fetching {symbol}@{exchange}: {e}")
+                logger.exception(
+                    f"Lỗi không mong muốn khi lấy dữ liệu {symbol}@{exchange}: {e}"
+                )
                 break
 
         # Tất cả retries đều thất bại
         logger.error(
-            f"All {self.max_retries} attempts failed for {symbol}@{exchange}. "
-            f"Last error: {last_exception}"
+            f"Tất cả {self.max_retries} lần thử đều thất bại cho {symbol}@{exchange}. "
+            f"Lỗi cuối cùng: {last_exception}"
         )
         return None

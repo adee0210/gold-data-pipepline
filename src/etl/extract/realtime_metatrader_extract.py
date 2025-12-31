@@ -52,7 +52,7 @@ class RealtimeMetatraderExtract:
         if "vol" in df.columns:
             df.rename(columns={"vol": "volume"}, inplace=True)
         elif "volume" not in df.columns:
-            df["volume"] = None  # Đảm bảo cột volume tồn tại với giá trị mặc định None
+            df["volume"] = None
 
         logger.info(f"Đã lấy {len(df)} nến gần nhất")
         return df
@@ -88,7 +88,7 @@ class RealtimeMetatraderExtract:
         if "vol" in df.columns:
             df.rename(columns={"vol": "volume"}, inplace=True)
         elif "volume" not in df.columns:
-            df["volume"] = None  # Đảm bảo cột volume tồn tại với giá trị mặc định None
+            df["volume"] = None
 
         logger.info(f"Đã lấy {len(df)} nến lịch sử")
         return df

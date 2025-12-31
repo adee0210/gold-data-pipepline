@@ -13,7 +13,6 @@ class LoggerConfig:
         max_bytes: int = None,
         backup_count: int = None,
     ):
-        # Import here to avoid circular dependency
         from config.variable_config import LOGGING_CONFIG
 
         # Sử dụng giá trị từ config nếu không được truyền vào
@@ -28,7 +27,7 @@ class LoggerConfig:
         root_dir = os.path.dirname(config_dir)
         base_path = os.path.join(root_dir, log_file)
 
-        # formatter
+        # Formatter (Định dạng log)
         formatter = logging.Formatter(
             "%(asctime)s - %(processName)s - %(levelname)s - %(name)s - %(message)s"
         )

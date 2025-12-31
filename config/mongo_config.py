@@ -15,7 +15,7 @@ class MongoConfig:
             "username": MONGO_CONFIG.get("user"),
             "password": MONGO_CONFIG.get("pass"),
             "authSource": MONGO_CONFIG.get("authSource", "admin"),
-            "serverSelectionTimeoutMS": 5000,  # Timeout 5s
+            "serverSelectionTimeoutMS": 5000,  # Thời gian chờ 5s
             "connectTimeoutMS": 5000,
             "socketTimeoutMS": 5000,
         }
@@ -36,11 +36,11 @@ class MongoConfig:
         if self._client is None:
             try:
                 self._client = MongoClient(**self._config)
-                # Test connection
+                # Kiểm tra kết nối
                 self._client.admin.command("ping")
-                logger.info("MongoDB connected successfully")
+                logger.info("Kết nối MongoDB thành công")
             except Exception as e:
-                logger.error(f"Failed to connect to MongoDB: {e}")
+                logger.error(f"Kết nối MongoDB thất bại: {e}")
                 self._client = None
         return self._client
 
@@ -52,4 +52,4 @@ class MongoConfig:
             except:
                 pass
         self._client = None
-        logger.info("MongoDB client reset, will reconnect on next access")
+        logger.info("Đã reset MongoDB client, sẽ kết nối lại khi cần")

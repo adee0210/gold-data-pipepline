@@ -2,19 +2,22 @@ import gdown
 import pandas as pd
 from config.variable_config import GOLD_DATA_CONFIG
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class HistoricalMetatraderExtract:
     def __init__(self) -> None:
         try:
             self.gdrive_url = GOLD_DATA_CONFIG["metatrader_data_gdrive_url"]
-            print("Successfully to read config")
+            logger.info("Đã đọc cấu hình thành công")
         except Exception as e:
-            print(f"Error to read config: {str(e)}")
+            logger.error(f"Không thể đọc cấu hình: {e}")
 
     def historical_extract(self):
         try:
-            print("Downloading Metatrader data from Google Drive ...")
+            logger.info("Đang tải dữ liệu Metatrader từ Google Drive...")
             temp_path = "/tmp/metatrader_data.csv"
             gdown.download(self.gdrive_url, temp_path, quiet=True)
             df = pd.read_csv(temp_path, sep="\t", engine="python")
@@ -43,8 +46,8 @@ class HistoricalMetatraderExtract:
             df = df.rename(columns={"tickvol": "volume"})
             df = df.drop(columns=["date", "time", "vol", "spread"])
 
-            print(f"Extracted data successfully: {len(df)} records")
+            logger.info(f"Đã trích xuất dữ liệu thành công: {len(df)} bản ghi")
             return df
         except Exception as e:
-            print(f"Error to extract data: {str(e)}")
+            logger.exception(f"Lỗi khi trích xuất dữ liệu: {e}")
             return None

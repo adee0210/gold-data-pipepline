@@ -31,16 +31,16 @@ class HistoricalMetatraderPipepline:
         """Chỉ chạy historical extract nếu chưa có dữ liệu"""
         try:
             if self.has_data():
-                print("Database đã có dữ liệu, bỏ qua historical extract")
+                logger.info("Database đã có dữ liệu, bỏ qua historical extract")
                 return
 
-            print("Database chưa có dữ liệu, bắt đầu chạy historical extract")
+            logger.info("Database chưa có dữ liệu, bắt đầu chạy historical extract")
             # Trích xuất dữ liệu
             metatrader_data = self.extractor.fill_historical_data(n_candles=5000)
             # Tải dữ liệu vào MongoDB
             self.loader.historical_load(metatrader_data)
         except Exception as e:
-            print(f"Lỗi trong pipeline lịch sử: {e}")
+            logger.exception(f"Lỗi trong pipeline lịch sử: {e}")
             import traceback
 
             traceback.print_exc()

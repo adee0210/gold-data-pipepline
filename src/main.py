@@ -4,10 +4,20 @@ import signal
 import time
 import argparse
 import subprocess
+import logging
+
+# Thêm đường dẫn config vào sys.path
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from config.logger_config import LoggerConfig
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PID_FILE = os.path.join(SCRIPT_DIR, "../gold_data_project.pid")
 LOCK_FILE = os.path.join(SCRIPT_DIR, "../gold_data_project.lock")
+
+# Khởi tạo logger
+logger_config = LoggerConfig()
+logger_config.setup_root_logger()
+logger = logging.getLogger(__name__)
 
 # Check and setup virtual environment
 VENV_DIR = os.path.join(SCRIPT_DIR, "../.venv")
@@ -75,11 +85,6 @@ def is_process_running(pid):
 
 
 def main():
-    # Cấu hình logging
-    from config.logger_config import LoggerConfig
-
-    LoggerConfig.setup_root_logger()
-
     try:
         hist = HistoricalMetatraderPipepline()
         hist.run()
@@ -87,7 +92,7 @@ def main():
         realtime = RealtimeMetatraderPipepline()
 
         def handle_sigterm(signum, frame):
-            print("Nhận tín hiệu dừng, thoát...")
+            logger.info("Nhận tín hiệu dừng, thoát...")
             raise SystemExit()
 
         signal.signal(signal.SIGTERM, handle_sigterm)
@@ -95,14 +100,14 @@ def main():
 
         realtime.run_realtime()
     except SystemExit:
-        print("Yêu cầu thoát hệ thống")
+        logger.info("Yêu cầu thoát hệ thống")
         raise  # Re-raise để vòng lặp
     except Exception as e:
-        print(f"Lỗi không mong muốn: {e}")
+        logger.exception(f"Lỗi không mong muốn: {e}")
         import traceback
 
         traceback.print_exc()
-        print("Pipeline bị crash, tiếp tục...")
+        logger.info("Pipeline bị crash, tiếp tục...")
 
 
 def start():
@@ -117,6 +122,7 @@ def start():
             os.remove(PID_FILE)
 
     print("Đang khởi động gold_data_project...")
+    logger.info("Đang khởi động gold_data_project...")
 
     import subprocess
 
@@ -124,7 +130,9 @@ def start():
     with open(PID_FILE, "w") as f:
         f.write(str(proc.pid))
     print(f"gold_data_project đã khởi động (PID: {proc.pid})")
+    logger.info(f"gold_data_project đã khởi động (PID: {proc.pid})")
     print("Log được quản lý bởi Python logger")
+    logger.info("Log được quản lý bởi Python logger")
     return 0
 
 
@@ -144,6 +152,7 @@ def run():
 def stop():
     if not os.path.exists(PID_FILE):
         print("Không tìm thấy file PID. Process có đang chạy không?")
+        logger.warning("Không tìm thấy file PID. Process có đang chạy không?")
         return 1
 
     with open(PID_FILE, "r") as f:
@@ -172,6 +181,7 @@ def restart():
 
 def monitor():
     print("Bắt đầu chế độ giám sát - sẽ tự động khởi động lại khi crash...")
+    logger.info("Bắt đầu chế độ giám sát - sẽ tự động khởi động lại khi crash...")
     while True:
         if os.path.exists(PID_FILE):
             with open(PID_FILE, "r") as f:
@@ -180,10 +190,16 @@ def monitor():
                 print(
                     f"{time.ctime()}: Process bị crash hoặc dừng, đang khởi động lại..."
                 )
+                logger.warning(
+                    f"{time.ctime()}: Process bị crash hoặc dừng, đang khởi động lại..."
+                )
                 os.remove(PID_FILE)
                 start()
         else:
             print(f"{time.ctime()}: Không tìm thấy file PID, đang khởi động process...")
+            logger.info(
+                f"{time.ctime()}: Không tìm thấy file PID, đang khởi động process..."
+            )
             start()
         time.sleep(10)
 

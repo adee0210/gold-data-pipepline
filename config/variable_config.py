@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# MongoDB Configuration
+# Cấu hình MongoDB
 MONGO_CONFIG = {
     "port": int(os.getenv("MONGO_PORT", 27017)),
     "host": os.getenv("MONGO_HOST", "localhost"),
@@ -12,7 +12,7 @@ MONGO_CONFIG = {
     "authSource": os.getenv("MONGO_AUTH", "admin"),
 }
 
-# Gold Data Configuration
+# Cấu hình dữ liệu vàng (Gold Data)
 GOLD_DATA_CONFIG = {
     "database": os.getenv("GOLD_DB_NAME", "gold_db"),
     "collection": os.getenv("GOLD_COLLECTION_NAME", "gold_minute_data"),
@@ -23,14 +23,14 @@ GOLD_DATA_CONFIG = {
     "realtime_interval_seconds": 30,
 }
 
-# TradingView Configuration
+# Cấu hình TradingView
 TRADINGVIEW_CONFIG = {
     "max_retries": int(os.getenv("TV_MAX_RETRIES", 3)),
     "retry_delay": int(os.getenv("TV_RETRY_DELAY", 5)),
     "default_n_bars": int(os.getenv("TV_DEFAULT_N_BARS", 100)),
 }
 
-# Logging Configuration
+# Cấu hình Logging (ghi log)
 LOGGING_CONFIG = {
     "log_file": "main.log",
     "log_level": "INFO",

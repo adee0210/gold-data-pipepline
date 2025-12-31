@@ -31,7 +31,7 @@ class RealtimeMetatraderLoad:
             if self.connection_failures >= 5:
                 wait_time = min(
                     60, 2 ** (self.connection_failures - 5)
-                )  # Exponential backoff
+                )  # Tăng thời gian chờ theo hàm mũ (exponential backoff)
                 logger.warning(
                     f"Quá nhiều lỗi kết nối, chờ {wait_time}s trước khi thử lại"
                 )
@@ -65,11 +65,11 @@ class RealtimeMetatraderLoad:
             yield df.iloc[i : i + chunk_size]
 
     def realtime_load(self, df):
-        print("Bắt đầu tải batch dữ liệu metatrader thời gian thực ...")
+        logger.info("Bắt đầu tải batch dữ liệu metatrader thời gian thực...")
 
         # Đảm bảo có kết nối trước khi load
         if not self._ensure_connection():
-            print("Không thể kết nối MongoDB, bỏ qua batch này")
+            logger.error("Không thể kết nối MongoDB, bỏ qua batch này")
             return 0
 
         chunk_size = self.batch_size_extract
@@ -87,7 +87,7 @@ class RealtimeMetatraderLoad:
                 )
                 batch_count += 1
                 total_inserted += inserted
-                print(
+                logger.info(
                     f"Batch {batch_count} đã chèn {inserted}/{len(chunk_data)} bản ghi"
                 )
             except BulkWriteError as bwe:
@@ -98,27 +98,29 @@ class RealtimeMetatraderLoad:
                 other_errors = [we for we in writeErrors if we.get("code") != 11000]
                 batch_count += 1
                 total_inserted += nInserted
-                print(
+                logger.warning(
                     f"Batch {batch_count} chèn một phần: {nInserted}/{len(chunk_data)} đã chèn, trùng lặp: {dup_count}, lỗi ghi khác: {len(other_errors)}"
                 )
                 if other_errors:
-                    print(
+                    logger.error(
                         f"Lỗi ghi không trùng lặp trong batch {batch_count}: {other_errors[0]}"
                     )
             except (ConnectionFailure, ServerSelectionTimeoutError) as e:
                 # Lỗi kết nối MongoDB - reset client để reconnect lần sau
-                print(f"MongoDB connection error in batch {batch_count}: {str(e)}")
+                logger.error(f"Lỗi kết nối MongoDB trong batch {batch_count}: {e}")
                 self.mongo_config.reset_client()
-                print("Sẽ kết nối lại ở thao tác tiếp theo")
+                logger.info("Sẽ kết nối lại ở thao tác tiếp theo")
                 # Không raise, tiếp tục với batch tiếp theo
             except Exception as e:
-                print(f"Lỗi tải dữ liệu metatrader thời gian thực: {str(e)}")
-                # Check nếu là lỗi liên quan connection
+                logger.error(f"Lỗi tải dữ liệu metatrader thời gian thực: {e}")
+                # Kiểm tra nếu là lỗi liên quan connection
                 if "closed" in str(e).lower() or "connection" in str(e).lower():
                     self.mongo_config.reset_client()
-                    print("Connection lost, will reconnect on next operation")
+                    logger.info("Mất kết nối, sẽ kết nối lại ở thao tác tiếp theo")
 
-        print(f"Tổng batch đã xử lý: {batch_count}, tổng đã chèn: {total_inserted}")
+        logger.info(
+            f"Tổng batch đã xử lý: {batch_count}, tổng đã chèn: {total_inserted}"
+        )
         return total_inserted
 
     def upsert_current_minute_candle(self, df):
@@ -132,7 +134,7 @@ class RealtimeMetatraderLoad:
             logger.error("Không thể kết nối MongoDB, bỏ qua upsert")
             return
 
-        # Ensure upsert logic is clear and concise
+        # Đảm bảo logic upsert rõ ràng và ngắn gọn
         logger.info("Đang upsert nến phút hiện tại theo datetime...")
         for _, row in df.iterrows():
             candle_data = row.to_dict()
@@ -151,19 +153,17 @@ class RealtimeMetatraderLoad:
 
                 if result.upserted_id:
                     logger.info(
-                        f"Inserted new candle for {datetime_key}: close={candle_data.get('close')}, volume={candle_data.get('volume')}"
+                        f"Đã chèn nến mới cho {datetime_key}: close={candle_data.get('close')}, volume={candle_data.get('volume')}"
                     )
                 else:
                     logger.info(
-                        f"Updated existing candle for {datetime_key}: close={candle_data.get('close')}, volume={candle_data.get('volume')}"
+                        f"Đã cập nhật nến đã tồn tại cho {datetime_key}: close={candle_data.get('close')}, volume={candle_data.get('volume')}"
                     )
             except (ConnectionFailure, ServerSelectionTimeoutError) as e:
                 # Lỗi kết nối MongoDB - reset client để reconnect lần sau
-                logger.error(
-                    f"MongoDB connection error upserting {datetime_key}: {str(e)}"
-                )
+                logger.error(f"Lỗi kết nối MongoDB khi upsert {datetime_key}: {e}")
                 self.mongo_config.reset_client()
-                logger.info("Will reconnect on next operation")
+                logger.info("Sẽ kết nối lại ở thao tác tiếp theo")
             except Exception as e:
                 logger.error(f"Lỗi upsert nến cho {datetime_key}: {str(e)}")
                 # Check nếu là lỗi liên quan connection
