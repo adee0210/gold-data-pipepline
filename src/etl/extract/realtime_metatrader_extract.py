@@ -24,9 +24,22 @@ class RealtimeMetatraderExtract:
     def get_recent_candles(self, n_candles=10):
         """Lấy n nến gần nhất từ TradingView"""
         logger.info(f"Đang lấy {n_candles} nến gần nhất")
-        df = self.tv_adapter.get_realtime_data(
-            symbol=self.symbol, exchange=self.exchange, n_bars=n_candles
-        )
+        try:
+            df = self.tv_adapter.get_realtime_data(
+                symbol=self.symbol, exchange=self.exchange, n_bars=n_candles
+            )
+        except Exception as e:
+            logger.error(f"Lỗi lấy dữ liệu gần nhất từ TradingView: {e}")
+            return pd.DataFrame(
+                columns=[
+                    "datetime",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                ]
+            )
         if df is None or df.empty:
             logger.warning("Không có dữ liệu trả về từ TV adapter")
             return pd.DataFrame(
@@ -60,9 +73,22 @@ class RealtimeMetatraderExtract:
     def fill_historical_data(self, n_candles=5000):
         """Lấy n nến lịch sử để fill data cũ"""
         logger.info(f"Đang lấy {n_candles} nến lịch sử")
-        df = self.tv_adapter.get_realtime_data(
-            symbol=self.symbol, exchange=self.exchange, n_bars=n_candles
-        )
+        try:
+            df = self.tv_adapter.get_realtime_data(
+                symbol=self.symbol, exchange=self.exchange, n_bars=n_candles
+            )
+        except Exception as e:
+            logger.error(f"Lỗi lấy dữ liệu lịch sử từ TradingView: {e}")
+            return pd.DataFrame(
+                columns=[
+                    "datetime",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                ]
+            )
         if df is None or df.empty:
             logger.warning("Không có dữ liệu lịch sử trả về từ TV adapter")
             return pd.DataFrame(

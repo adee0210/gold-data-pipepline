@@ -27,6 +27,8 @@ class RealtimeMetatraderPipepline:
         # Kết nối MongoDB để kiểm tra dữ liệu
         self.mongo_config = MongoConfig()
         self.mongo_client = self.mongo_config.get_client()
+        if self.mongo_client is None:
+            raise ConnectionError("Không thể kết nối MongoDB")
         self.gold_db = self.mongo_client.get_database(GOLD_DATA_CONFIG["database"])
         self.gold_collection = self.gold_db.get_collection(
             GOLD_DATA_CONFIG["collection"]
@@ -52,11 +54,16 @@ class RealtimeMetatraderPipepline:
     def run_realtime(self):
         logger.info("Bắt đầu khởi tạo pipeline thời gian thực...")
 
-        logger.info("Bắt đầu backfill 5000 nến lịch sử")
-        metatrader_data = self.extractor.fill_historical_data(n_candles=5000)
-        self.loader.upsert_current_minute_candle(
-            metatrader_data
-        )  # Backfill bằng logic upsert
+        # Luôn backfill 5000 nến lịch sử
+        try:
+            logger.info("Bắt đầu backfill 5000 nến lịch sử")
+            metatrader_data = self.extractor.fill_historical_data(n_candles=5000)
+            self.loader.upsert_current_minute_candle(
+                metatrader_data
+            )  # Backfill bằng logic upsert
+            logger.info("Backfill lịch sử hoàn thành")
+        except Exception as e:
+            logger.error(f"Lỗi backfill lịch sử: {e}, bỏ qua và tiếp tục với realtime")
 
         # Lên lịch: upsert 10 nến gần nhất mỗi 10 giây
         interval = GOLD_DATA_CONFIG.get("realtime_interval_seconds", 10)

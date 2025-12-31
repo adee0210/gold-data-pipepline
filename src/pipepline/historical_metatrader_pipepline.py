@@ -22,6 +22,8 @@ class HistoricalMetatraderPipepline:
         # Kết nối MongoDB để kiểm tra dữ liệu
         self.mongo_config = MongoConfig()
         self.mongo_client = self.mongo_config.get_client()
+        if self.mongo_client is None:
+            raise ConnectionError("Không thể kết nối MongoDB")
         self.gold_db = self.mongo_client.get_database(GOLD_DATA_CONFIG["database"])
         self.gold_collection = self.gold_db.get_collection(
             GOLD_DATA_CONFIG["collection"]
