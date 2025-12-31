@@ -98,9 +98,6 @@ class RealtimeMetatraderPipepline:
                         schedule.clear()
                         consecutive_errors = 0
                         schedule.every(interval).seconds.do(self.upsert_recent_candles)
-                        # Đảm bảo không có lịch trùng lặp
-                        schedule.clear(self.upsert_recent_candles)
-                        schedule.every(interval).seconds.do(self.upsert_recent_candles)
                         logger.info("Pipeline đã khởi động lại sau lỗi")
                     else:
                         time.sleep(5)  # Chờ 5 giây trước khi tiếp tục
