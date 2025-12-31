@@ -123,7 +123,17 @@ def start():
 
     import subprocess
 
-    proc = subprocess.Popen([sys.executable, __file__, "run"])
+    # Sử dụng DETACHED_PROCESS để tách rời tiến trình trên Windows
+    creation_flags = 0
+    if os.name == "nt":  # Windows
+        creation_flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NO_WINDOW
+
+    proc = subprocess.Popen(
+        [sys.executable, __file__, "run"],
+        creationflags=creation_flags,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     with open(PID_FILE, "w") as f:
         f.write(str(proc.pid))
     print(f"gold_data_project đã khởi động (PID: {proc.pid})")
