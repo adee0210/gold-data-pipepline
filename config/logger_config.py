@@ -46,13 +46,14 @@ class LoggerConfig:
         )
         file_handler.setFormatter(formatter)
 
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
+        # Ensure console logging is disabled
+        # console_handler = logging.StreamHandler()
+        # console_handler.setFormatter(formatter)
 
         logger = logging.getLogger(log_name)
 
         if not logger.handlers:
-            list_handler = [file_handler, console_handler]
+            list_handler = [file_handler]  # Only file handler remains
             for h in list_handler:
                 logger.addHandler(h)
 

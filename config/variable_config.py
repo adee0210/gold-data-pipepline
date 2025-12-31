@@ -20,31 +20,12 @@ GOLD_DATA_CONFIG = {
     "metatrader_data_gdrive_url": os.getenv(
         "GDRIVE_URL", "https://drive.google.com/uc?id=1v7HVgXhUmGEUbmbkPxpZ44RiUJH8V3NK"
     ),
+    "realtime_interval_seconds": 30,
 }
 
 # TradingView Configuration
 TRADINGVIEW_CONFIG = {
-    "symbol": os.getenv("TV_SYMBOL", "XAUUSD"),
-    "exchange": os.getenv("TV_EXCHANGE", "OANDA"),
-    "interval": "1minute",
     "max_retries": int(os.getenv("TV_MAX_RETRIES", 3)),
-    "retry_delay": float(os.getenv("TV_RETRY_DELAY", 2.0)),
-    "default_n_bars": int(os.getenv("TV_DEFAULT_BARS", 10)),
-    "max_n_bars": int(os.getenv("TV_MAX_BARS", 5000)),
-}
-
-# Logging Configuration
-LOGGING_CONFIG = {
-    "log_file": os.getenv("LOG_FILE", "main.log"),
-    "log_level": os.getenv("LOG_LEVEL", "INFO"),
-    "max_bytes": int(os.getenv("LOG_MAX_BYTES", 10 * 1024 * 1024)),  # 10MB
-    "backup_count": int(os.getenv("LOG_BACKUP_COUNT", 5)),
-}
-
-# Market Hours Configuration (Vietnam timezone GMT+7)
-MARKET_CONFIG = {
-    "open_weekday": 0,  # Monday
-    "close_weekday": 5,  # Saturday
-    "daily_open_hour": 6,  # 6 AM Vietnam time
-    "weekend_close_enabled": True,
+    "retry_delay": int(os.getenv("TV_RETRY_DELAY", 5)),
+    "default_n_bars": int(os.getenv("TV_DEFAULT_N_BARS", 100)),
 }

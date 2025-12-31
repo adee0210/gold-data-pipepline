@@ -1,4 +1,3 @@
-from config.logger_config import LoggerConfig
 from config.mongo_config import MongoConfig
 from config.variable_config import GOLD_DATA_CONFIG
 from pymongo.errors import BulkWriteError
@@ -7,9 +6,6 @@ from pymongo.errors import BulkWriteError
 class HistoricalMetatraderLoad:
     def __init__(self) -> None:
         try:
-            self.logger = LoggerConfig.logger_config(
-                "Load historical metatrader gold data"
-            )
             self.batch_size_extract = GOLD_DATA_CONFIG["batch_size_extract"]
             self.mongo_config = MongoConfig()
             self.mongo_client = self.mongo_config.get_client()
@@ -22,10 +18,10 @@ class HistoricalMetatraderLoad:
                     [("datetime", 1)], unique=True, background=True
                 )
             except Exception:
-                self.logger.debug("Index creation skipped or failed; continuing")
-            self.logger.info("Successfully to connect MongoDB Config")
+                print("Index creation skipped or failed; continuing")
+            print("Kết nối MongoDB Config thành công")
         except Exception as e:
-            self.logger.error(f"Can not to connect MongoDB Config: {str(e)}")
+            print(f"Không thể kết nối MongoDB Config: {str(e)}")
             raise
 
     def chunk_data_frame(self, metatrader_data_extract, chunk_size):
@@ -33,7 +29,7 @@ class HistoricalMetatraderLoad:
             yield metatrader_data_extract.iloc[i : i + chunk_size]
 
     def historical_load(self, metatrader_data_extract):
-        self.logger.info("Start load batch historical metatrader data ...")
+        print("Bắt đầu tải batch dữ liệu metatrader lịch sử ...")
         chunk_size = self.batch_size_extract
         batch_count = 0
         for chunk in self.chunk_data_frame(
@@ -48,7 +44,7 @@ class HistoricalMetatraderLoad:
                     else 0
                 )
                 batch_count += 1
-                self.logger.info(
+                print(
                     f"Batch {batch_count} inserted {inserted}/{len(chunk_data)} records"
                 )
             except BulkWriteError as bwe:
@@ -58,15 +54,13 @@ class HistoricalMetatraderLoad:
                 dup_count = sum(1 for we in writeErrors if we.get("code") == 11000)
                 other_errors = [we for we in writeErrors if we.get("code") != 11000]
                 batch_count += 1
-                self.logger.info(
+                print(
                     f"Batch {batch_count} partial insert: {nInserted}/{len(chunk_data)} inserted, duplicates: {dup_count}, other write errors: {len(other_errors)}"
                 )
                 if other_errors:
-                    self.logger.error(
+                    print(
                         f"Non-duplicate write error in batch {batch_count}: {other_errors[0]}"
                     )
             except Exception as e:
-                self.logger.exception(
-                    f"Unexpected error to load historical metatrader data: {str(e)}"
-                )
-        self.logger.info(f"Total batches processed: {batch_count}")
+                print(f"Unexpected error to load historical metatrader data: {str(e)}")
+        print(f"Tổng batch đã xử lý: {batch_count}")

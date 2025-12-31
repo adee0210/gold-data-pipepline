@@ -5,18 +5,16 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"
 
 from src.etl.extract.historical_metatrader_extract import HistoricalMetatraderExtract
 from src.etl.load.historical_metatrader_load import HistoricalMetatraderLoad
-from config.logger_config import LoggerConfig
 from config.mongo_config import MongoConfig
 from config.variable_config import GOLD_DATA_CONFIG
 
 
 class HistoricalMetatraderPipepline:
     def __init__(self):
-        self.logger = LoggerConfig.logger_config("Historical Pipeline")
         self.extractor = HistoricalMetatraderExtract()
         self.loader = HistoricalMetatraderLoad()
 
-        # MongoDB connection để kiểm tra data
+        # Kết nối MongoDB để kiểm tra dữ liệu
         self.mongo_config = MongoConfig()
         self.mongo_client = self.mongo_config.get_client()
         self.gold_db = self.mongo_client.get_database(GOLD_DATA_CONFIG["database"])
@@ -33,18 +31,16 @@ class HistoricalMetatraderPipepline:
         """Chỉ chạy historical extract nếu chưa có dữ liệu"""
         try:
             if self.has_data():
-                self.logger.info("Database đã có dữ liệu, bỏ qua historical extract")
+                print("Database đã có dữ liệu, bỏ qua historical extract")
                 return
 
-            self.logger.info(
-                "Database chưa có dữ liệu, bắt đầu chạy historical extract"
-            )
-            # Extract dữ liệu
-            metatrader_data = self.extractor.historical_extract()
-            # Load dữ liệu vào MongoDB
+            print("Database chưa có dữ liệu, bắt đầu chạy historical extract")
+            # Trích xuất dữ liệu
+            metatrader_data = self.extractor.fill_historical_data(n_candles=5000)
+            # Tải dữ liệu vào MongoDB
             self.loader.historical_load(metatrader_data)
         except Exception as e:
-            self.logger.error(f"Error in historical pipeline: {e}")
+            print(f"Lỗi trong pipeline lịch sử: {e}")
             import traceback
 
             traceback.print_exc()

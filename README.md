@@ -69,9 +69,7 @@ gold-data-pipepline/
 ```bash
 git clone <repository-url>
 cd gold-data-pipepline
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+# Môi trường ảo sẽ được tạo tự động khi chạy main.py lần đầu
 ```
 
 ### 2. Cấu hình môi trường
@@ -81,28 +79,27 @@ Chỉnh sửa file `config/variable_config.py` để cấu hình MongoDB, Tradin
 ### 3. Khởi chạy hệ thống
 
 ```bash
-./run.sh start    # Khởi động
-./run.sh stop     # Dừng
-./run.sh restart  # Khởi động lại
-./run.sh status   # Kiểm tra trạng thái
+python src/main.py start    # Khởi động
+python src/main.py stop     # Dừng
+python src/main.py restart  # Khởi động lại
+python src/main.py status   # Kiểm tra trạng thái
+python src/main.py monitor  # Chạy mode monitor (auto-restart nếu crash)
 ```
 
 ### 4. Chạy thủ công (development)
 
 ```bash
-python src/main.py
+python src/main.py monitor  # Chạy liên tục với auto-restart
 ```
 
 ## Logic hoạt động
 
 ### 1. Pipeline Realtime
-- Thu thập nến đã hoàn thành mỗi phút
-- Upsert nến hiện tại mỗi 5 giây (n_bars=3)
-- Tự động phát hiện và điền khoảng trống dữ liệu (24h gần nhất)
+- Upsert 10 nến gần nhất mỗi 10 giây
 - Quản lý log với xoay vòng file (10MB, 5 bản backup)
 
 ### 2. Pipeline Historical
-- Chỉ chạy khi database chưa có dữ liệu (import file lịch sử nếu cần)
+- Chạy khi database chưa có dữ liệu, import 5000 nến lịch sử
 
 ### 3. Backfill thủ công
 - Sử dụng script `test_backfill_data.py` để bù dữ liệu thiếu với số lượng lớn (ví dụ: 10000 bản ghi)
@@ -110,5 +107,5 @@ python src/main.py
 ## Monitoring & Debugging
 
 - Xem log realtime: `tail -f main.log`
-- Kiểm tra trạng thái dịch vụ: `./run.sh status`
+- Kiểm tra trạng thái dịch vụ: `python src/main.py status`
 - Kiểm tra số lượng bản ghi: dùng MongoDB shell

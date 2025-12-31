@@ -66,6 +66,9 @@ class TVDataFeedAdapter:
                 if df is None or df.empty:
                     raise ValueError("No data returned from TradingView")
 
+                print(f"DEBUG: Columns from tvDatafeed: {df.columns.tolist()}")
+                print(f"DEBUG: Sample data:\n{df.head(2)}")
+
                 # Đổi tên cột về chuẩn
                 df = df.reset_index()
                 # Columns từ tvDatafeed: ['datetime', 'symbol', 'open', 'high', 'low', 'close', 'volume']
