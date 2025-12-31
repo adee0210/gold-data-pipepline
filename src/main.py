@@ -14,11 +14,6 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PID_FILE = os.path.join(SCRIPT_DIR, "../gold_data_project.pid")
 LOCK_FILE = os.path.join(SCRIPT_DIR, "../gold_data_project.lock")
 
-# Khởi tạo logger
-logger_config = LoggerConfig()
-logger_config.setup_root_logger()
-logger = logging.getLogger(__name__)
-
 # Check and setup virtual environment
 VENV_DIR = os.path.join(SCRIPT_DIR, "../.venv")
 if not os.path.exists(VENV_DIR):
@@ -70,7 +65,9 @@ if "venv" not in sys.executable.lower():
         print("Không tìm thấy Python trong venv.")
         sys.exit(1)
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
+# Khởi tạo logger
+LoggerConfig.logger_config("")
+logger = logging.getLogger(__name__)
 
 from src.pipepline.historical_metatrader_pipepline import HistoricalMetatraderPipepline
 from src.pipepline.realtime_metatrader_pipepline import RealtimeMetatraderPipepline

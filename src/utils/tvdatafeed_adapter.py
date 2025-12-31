@@ -4,8 +4,13 @@ from tvDatafeed import TvDatafeed, Interval
 import pandas as pd
 import logging
 import time
+import sys
+import os
 
-logger = logging.getLogger(__name__)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+from config.logger_config import LoggerConfig
+
+logger = LoggerConfig.logger_config(__name__)
 
 
 class TVDataFeedAdapter:
