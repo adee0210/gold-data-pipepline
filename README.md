@@ -74,7 +74,33 @@ cd gold-data-pipepline
 
 ### 2. Cấu hình môi trường
 
-Chỉnh sửa file `config/variable_config.py` để cấu hình MongoDB, TradingView, logging.
+Tạo file `.env` trong thư mục gốc của project và cấu hình các biến môi trường sau:
+
+```bash
+# MongoDB Configuration
+MONGO_HOST=localhost
+MONGO_PORT=27017
+MONGO_USER=your_mongo_username
+MONGO_PASS=your_mongo_password
+MONGO_AUTH=admin
+
+# Database Configuration
+GOLD_DB_NAME=gold_db
+GOLD_COLLECTION_NAME=gold_minute_data
+BATCH_SIZE=10000
+
+# TradingView Configuration
+TV_MAX_RETRIES=3
+TV_RETRY_DELAY=5
+TV_DEFAULT_N_BARS=100
+
+# Historical Data Source
+GDRIVE_URL=https://drive.google.com/uc?id=1v7HVgXhUmGEUbmbkPxpZ44RiUJH8V3NK
+```
+
+**Lưu ý:** 
+- Các biến có giá trị mặc định có thể bỏ qua
+- Không commit file `.env` vào git (đã được ignore)
 
 ### 3. Khởi chạy hệ thống
 

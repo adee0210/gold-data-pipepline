@@ -5,6 +5,9 @@ from pymongo.errors import (
     ConnectionFailure,
     ServerSelectionTimeoutError,
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class RealtimeMetatraderLoad:
@@ -16,11 +19,11 @@ class RealtimeMetatraderLoad:
         self._ensure_connection()
 
     def _ensure_connection(self):
-        """Lazy connection: đảm bảo có kết nối MongoDB hợp lệ"""
+        """Đảm bảo có kết nối MongoDB hợp lệ"""
         import time
         from datetime import datetime, timedelta
 
-        # Rate limiting: nếu quá nhiều failures trong 1 phút, chờ
+        # Giới hạn tần suất: nếu quá nhiều lỗi trong 1 phút, chờ
         now = datetime.now()
         if self.last_failure_time and (now - self.last_failure_time) < timedelta(
             minutes=1
@@ -29,15 +32,15 @@ class RealtimeMetatraderLoad:
                 wait_time = min(
                     60, 2 ** (self.connection_failures - 5)
                 )  # Exponential backoff
-                print(
-                    f"Too many connection failures, waiting {wait_time}s before retry"
+                logger.warning(
+                    f"Quá nhiều lỗi kết nối, chờ {wait_time}s trước khi thử lại"
                 )
                 time.sleep(wait_time)
 
         try:
             client = self.mongo_config.get_client()
             if client is None:
-                print("MongoDB client is None, will retry on next operation")
+                logger.error("MongoDB client là None, sẽ thử lại trong lần tiếp theo")
                 self.connection_failures += 1
                 self.last_failure_time = now
                 return False
@@ -47,11 +50,11 @@ class RealtimeMetatraderLoad:
                 GOLD_DATA_CONFIG["collection"]
             )
 
-            print("Kết nối MongoDB đã được xác minh")
-            self.connection_failures = 0  # Reset on success
+            logger.info("Kết nối MongoDB đã được xác minh")
+            self.connection_failures = 0  # Reset khi thành công
             return True
         except Exception as e:
-            print(f"Kết nối MongoDB thất bại: {str(e)}")
+            logger.error(f"Kết nối MongoDB thất bại: {str(e)}")
             self.mongo_config.reset_client()
             self.connection_failures += 1
             self.last_failure_time = now
@@ -121,22 +124,22 @@ class RealtimeMetatraderLoad:
     def upsert_current_minute_candle(self, df):
         """Upsert nến phút hiện tại - update nếu tồn tại, insert nếu chưa có"""
         if df.empty:
-            print("Không có dữ liệu để upsert")
+            logger.warning("Không có dữ liệu để upsert")
             return
 
         # Đảm bảo có kết nối trước khi upsert
         if not self._ensure_connection():
-            print("Không thể kết nối MongoDB, bỏ qua upsert")
+            logger.error("Không thể kết nối MongoDB, bỏ qua upsert")
             return
 
         # Ensure upsert logic is clear and concise
-        print("Đang upsert nến phút hiện tại theo datetime...")
+        logger.info("Đang upsert nến phút hiện tại theo datetime...")
         for _, row in df.iterrows():
             candle_data = row.to_dict()
             datetime_key = candle_data.get("datetime")
 
             if not datetime_key:
-                print(f"Bỏ qua nến không có datetime: {candle_data}")
+                logger.warning(f"Bỏ qua nến không có datetime: {candle_data}")
                 continue
 
             try:
@@ -147,20 +150,22 @@ class RealtimeMetatraderLoad:
                 )
 
                 if result.upserted_id:
-                    print(
+                    logger.info(
                         f"Inserted new candle for {datetime_key}: close={candle_data.get('close')}, volume={candle_data.get('volume')}"
                     )
                 else:
-                    print(
+                    logger.info(
                         f"Updated existing candle for {datetime_key}: close={candle_data.get('close')}, volume={candle_data.get('volume')}"
                     )
             except (ConnectionFailure, ServerSelectionTimeoutError) as e:
                 # Lỗi kết nối MongoDB - reset client để reconnect lần sau
-                print(f"MongoDB connection error upserting {datetime_key}: {str(e)}")
+                logger.error(
+                    f"MongoDB connection error upserting {datetime_key}: {str(e)}"
+                )
                 self.mongo_config.reset_client()
-                print("Will reconnect on next operation")
+                logger.info("Will reconnect on next operation")
             except Exception as e:
-                print(f"Lỗi upsert nến cho {datetime_key}: {str(e)}")
+                logger.error(f"Lỗi upsert nến cho {datetime_key}: {str(e)}")
                 # Check nếu là lỗi liên quan connection
                 if "closed" in str(e).lower() or "connection" in str(e).lower():
                     self.mongo_config.reset_client()

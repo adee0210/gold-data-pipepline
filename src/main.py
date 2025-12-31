@@ -75,6 +75,11 @@ def is_process_running(pid):
 
 
 def main():
+    # Cấu hình logging
+    from config.logger_config import LoggerConfig
+
+    LoggerConfig.setup_root_logger()
+
     try:
         hist = HistoricalMetatraderPipepline()
         hist.run()
@@ -93,7 +98,7 @@ def main():
         print("Yêu cầu thoát hệ thống")
         raise  # Re-raise để vòng lặp
     except Exception as e:
-        print(f"Lỗi nghiêm trọng trong pipeline chính: {e}")
+        print(f"Lỗi không mong muốn: {e}")
         import traceback
 
         traceback.print_exc()

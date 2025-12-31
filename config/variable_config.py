@@ -29,3 +29,11 @@ TRADINGVIEW_CONFIG = {
     "retry_delay": int(os.getenv("TV_RETRY_DELAY", 5)),
     "default_n_bars": int(os.getenv("TV_DEFAULT_N_BARS", 100)),
 }
+
+# Logging Configuration
+LOGGING_CONFIG = {
+    "log_file": "main.log",
+    "log_level": "INFO",
+    "max_bytes": 10 * 1024 * 1024,  # 10MB
+    "backup_count": 5,
+}
