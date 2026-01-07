@@ -2,8 +2,9 @@ from config.mongo_config import MongoConfig
 from config.variable_config import GOLD_DATA_CONFIG
 from pymongo.errors import BulkWriteError
 import logging
+from config.logger_config import LoggerConfig
 
-logger = logging.getLogger(__name__)
+logger = LoggerConfig.logger_config(__name__)
 
 
 class HistoricalMetatraderLoad:

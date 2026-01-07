@@ -6,8 +6,9 @@ from pymongo.errors import (
     ServerSelectionTimeoutError,
 )
 import logging
+from config.logger_config import LoggerConfig
 
-logger = logging.getLogger(__name__)
+logger = LoggerConfig.logger_config(__name__)
 
 
 class RealtimeMetatraderLoad:

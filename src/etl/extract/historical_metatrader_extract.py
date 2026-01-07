@@ -3,8 +3,9 @@ import pandas as pd
 from config.variable_config import GOLD_DATA_CONFIG
 import os
 import logging
+from config.logger_config import LoggerConfig
 
-logger = logging.getLogger(__name__)
+logger = LoggerConfig.logger_config(__name__)
 
 
 class HistoricalMetatraderExtract:

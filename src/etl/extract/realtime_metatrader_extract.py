@@ -5,8 +5,9 @@ from config.variable_config import GOLD_DATA_CONFIG
 from src.utils.tvdatafeed_adapter import TVDataFeedAdapter
 import uuid
 import logging
+from config.logger_config import LoggerConfig
 
-logger = logging.getLogger(__name__)
+logger = LoggerConfig.logger_config(__name__)
 
 
 class RealtimeMetatraderExtract:
