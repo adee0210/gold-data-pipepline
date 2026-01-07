@@ -298,14 +298,14 @@ if __name__ == "__main__":
             return True
 
         except Exception as e:
-            print(f"❌ Lỗi khi dừng process: {e}")
+            print(f" Lỗi khi dừng process: {e}")
             return False
 
     def show_status():
         """Hiển thị trạng thái process"""
         pid = get_pid()
         if not pid:
-            print("❌ Pipeline KHÔNG chạy (không tìm thấy PID file)")
+            print(" Pipeline KHÔNG chạy (không tìm thấy PID file)")
             return
 
         if is_process_running(pid):
@@ -326,7 +326,7 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"Loi khi lay thong tin process: {e}")
         else:
-            print(f"❌ Pipeline KHÔNG chạy (PID {pid} không tồn tại)")
+            print(f"Pipeline KHÔNG chạy (PID {pid} không tồn tại)")
             PID_FILE.unlink(missing_ok=True)
 
     # Xử lý các action
@@ -351,8 +351,8 @@ if __name__ == "__main__":
     existing_pid = get_pid()
     if existing_pid and is_process_running(existing_pid):
         print(f"Pipeline da chay voi PID {existing_pid}")
-        print(f"💡 Dùng '{sys.argv[0]} restart' để khởi động lại")
-        print(f"💡 Dùng '{sys.argv[0]} status' để xem trạng thái")
+        print(f"Dùng '{sys.argv[0]} restart' để khởi động lại")
+        print(f" Dùng '{sys.argv[0]} status' để xem trạng thái")
         sys.exit(1)
 
     # Fork process để chạy background
@@ -376,7 +376,7 @@ if __name__ == "__main__":
             print("=" * 80)
             sys.exit(0)
     except OSError as e:
-        print(f"❌ Lỗi khi fork process: {e}")
+        print(f" Lỗi khi fork process: {e}")
         sys.exit(1)
 
     # Child process - chạy pipeline
