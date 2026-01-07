@@ -173,28 +173,61 @@ class GoldDataMain:
             self.historical_completed = True  # Đánh dấu hoàn thành để tiếp tục realtime
 
     def run_realtime(self):
-        """Chạy pipeline realtime liên tục - với resilient error handling"""
-        try:
-            self.logger.info("=" * 80)
-            self.logger.info("BẮT ĐẦU PIPELINE REALTIME GOLD DATA")
-            self.logger.info("=" * 80)
+        """Chạy pipeline realtime liên tục - với resilient error handling và auto-restart"""
+        restart_count = 0
+        max_restart_delay = 60  # Tối đa 60 giây giữa các lần restart
 
-            realtime_pipeline = RealtimeMetatraderPipepline()
+        while not self.shutdown_requested:
+            try:
+                self.logger.info("=" * 80)
+                self.logger.info("BẮT ĐẦU PIPELINE REALTIME GOLD DATA")
+                if restart_count > 0:
+                    self.logger.info(f"Lần restart thứ: {restart_count}")
+                self.logger.info("=" * 80)
 
-            # Bắt đầu vòng lặp realtime liên tục
-            self.logger.info("=" * 80)
-            self.logger.info("BẮT ĐẦU VÒNG LẶP REALTIME (CẬP NHẬT MỖI 30 GIÂY)")
-            self.logger.info("=" * 80)
+                realtime_pipeline = RealtimeMetatraderPipepline()
 
-            # Chạy pipeline realtime (sẽ chạy liên tục bên trong)
-            realtime_pipeline.run_realtime()
+                # Bắt đầu vòng lặp realtime liên tục
+                self.logger.info("=" * 80)
+                self.logger.info("BẮT ĐẦU VÒNG LẶP REALTIME (CẬP NHẬT MỖI 2 GIÂY)")
+                self.logger.info("=" * 80)
 
-            self.logger.info("=" * 80)
-            self.logger.info("DỪNG PIPELINE REALTIME GOLD DATA")
-            self.logger.info("=" * 80)
+                # Chạy pipeline realtime (sẽ chạy liên tục bên trong)
+                realtime_pipeline.run_realtime()
 
-        except Exception as e:
-            self.logger.error(f"Lỗi nghiêm trọng khi chạy pipeline realtime: {str(e)}")
+                # Nếu thoát bình thường (không có exception), break
+                self.logger.info("=" * 80)
+                self.logger.info("DỪNG PIPELINE REALTIME GOLD DATA")
+                self.logger.info("=" * 80)
+                break
+
+            except KeyboardInterrupt:
+                self.logger.info("Nhận tín hiệu dừng từ người dùng")
+                break
+            except Exception as e:
+                restart_count += 1
+                delay = min(5 * restart_count, max_restart_delay)
+
+                self.logger.error("=" * 80)
+                self.logger.error(f"LỖI TRONG PIPELINE REALTIME (Lần {restart_count})")
+                self.logger.error(f"Lỗi: {str(e)}")
+                self.logger.error(f"Sẽ tự động khởi động lại sau {delay} giây...")
+                self.logger.error("=" * 80)
+                self.logger.exception(e)
+
+                # Đợi trước khi restart
+                for i in range(delay):
+                    if self.shutdown_requested:
+                        break
+                    time.sleep(1)
+
+                if not self.shutdown_requested:
+                    self.logger.info(
+                        f"Đang khởi động lại pipeline lần {restart_count}..."
+                    )
+                    continue
+                else:
+                    break
 
     def run(self):
         """Chạy toàn bộ ứng dụng"""
