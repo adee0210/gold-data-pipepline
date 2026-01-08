@@ -1,10 +1,6 @@
 import pandas as pd
 from typing import Optional
-from config.mongo_config import MongoConfig
-from config.variable_config import GOLD_DATA_CONFIG
-from src.utils.tvdatafeed_adapter import TVDataFeedAdapter
-import uuid
-import logging
+from tvDatafeed import TvDatafeed, Interval
 from config.logger_config import LoggerConfig
 
 logger = LoggerConfig.logger_config(__name__)
@@ -20,105 +16,106 @@ class RealtimeMetatraderExtract:
     ):
         self.symbol = symbol
         self.exchange = exchange
-        self.tv_adapter = TVDataFeedAdapter(tv_username, tv_password)
+        # Khởi tạo TvDatafeed trực tiếp, không qua adapter
+        self.tv = TvDatafeed(tv_username or "", tv_password or "")
+
+    def _transform_tv_data(self, df):
+        """Transform data từ TradingView về format chuẩn"""
+        if df is None or df.empty:
+            return pd.DataFrame(
+                columns=["datetime", "open", "high", "low", "close", "volume"]
+            )
+
+        # Đổi tên cột về chuẩn
+        df = df.reset_index()
+        df.rename(
+            columns={
+                "datetime": "date_time",
+                "volume": "vol",
+            },
+            inplace=True,
+        )
+
+        # Tách date và time
+        df["date"] = df["date_time"].dt.strftime("%Y.%m.%d")
+        df["time"] = df["date_time"].dt.strftime("%H:%M:%S")
+
+        # Tạo trường datetime chuẩn
+        df["datetime"] = pd.to_datetime(
+            df["date"] + " " + df["time"], format="%Y.%m.%d %H:%M:%S"
+        )
+
+        # Đổi vol thành volume
+        df.rename(columns={"vol": "volume"}, inplace=True)
+
+        # Chỉ giữ các cột cần thiết
+        df = df[["datetime", "open", "high", "low", "close", "volume"]]
+
+        # Sắp xếp theo datetime
+        df = df.sort_values("datetime").reset_index(drop=True)
+
+        return df
 
     def get_recent_candles(self, n_candles=10):
-        """Lấy n nến gần nhất từ TradingView"""
+        """
+        Lấy n nến gần nhất từ TradingView
+        Nếu lỗi hoặc không có data, return DataFrame rỗng và pipeline sẽ tự động thử lại ở lần tiếp theo
+        """
         try:
-            df = self.tv_adapter.get_realtime_data(
-                symbol=self.symbol, exchange=self.exchange, n_bars=n_candles
+            # Gọi trực tiếp TvDatafeed
+            df = self.tv.get_hist(
+                symbol=self.symbol,
+                exchange=self.exchange,
+                interval=Interval.in_1_minute,
+                n_bars=n_candles,
             )
+
+            # Transform về format chuẩn
+            df_transformed = self._transform_tv_data(df)
+
+            if not df_transformed.empty:
+                logger.info(f"Đã lấy {len(df_transformed)} nến gần nhất")
+            else:
+                logger.debug(f"Không có dữ liệu cho {n_candles} nến")
+
+            return df_transformed
+
         except Exception as e:
-            logger.error(f"Lỗi lấy dữ liệu gần nhất từ TradingView: {e}")
+            # Bất kỳ lỗi gì cũng chỉ log và return rỗng - pipeline sẽ tự động thử lại
+            logger.debug(f"Lỗi lấy dữ liệu (bỏ qua, sẽ thử lại lần sau): {e}")
             return pd.DataFrame(
-                columns=[
-                    "datetime",
-                    "open",
-                    "high",
-                    "low",
-                    "close",
-                    "volume",
-                ]
+                columns=["datetime", "open", "high", "low", "close", "volume"]
             )
-        if df is None or df.empty:
-            # Chỉ log debug thôi, không warning - có thể thị trường đóng cửa
-            logger.debug(f"Không có dữ liệu từ TV adapter cho {n_candles} nến")
-            return pd.DataFrame(
-                columns=[
-                    "datetime",
-                    "open",
-                    "high",
-                    "low",
-                    "close",
-                    "volume",
-                ]
-            )
-
-        # Tạo trường datetime
-        df["datetime"] = pd.to_datetime(
-            df["date"] + " " + df["time"], format="%Y.%m.%d %H:%M:%S"
-        )
-
-        # Sắp xếp theo datetime
-        df = df.sort_values("datetime").reset_index(drop=True)
-
-        # Đổi tên cột vol thành volume nếu tồn tại
-        if "vol" in df.columns:
-            df.rename(columns={"vol": "volume"}, inplace=True)
-        elif "volume" not in df.columns:
-            df["volume"] = None
-
-        logger.info(f"Đã lấy {len(df)} nến gần nhất")
-        return df
 
     def fill_historical_data(self, n_candles=5000):
-        """Lấy n nến lịch sử để fill data cũ"""
+        """
+        Lấy n nến lịch sử để fill data cũ
+        Nếu lỗi hoặc không có data, return DataFrame rỗng
+        """
         logger.info(f"Đang lấy {n_candles} nến lịch sử")
+
         try:
-            df = self.tv_adapter.get_realtime_data(
-                symbol=self.symbol, exchange=self.exchange, n_bars=n_candles
+            # Gọi trực tiếp TvDatafeed
+            df = self.tv.get_hist(
+                symbol=self.symbol,
+                exchange=self.exchange,
+                interval=Interval.in_1_minute,
+                n_bars=n_candles,
             )
+
+            # Transform về format chuẩn
+            df_transformed = self._transform_tv_data(df)
+
+            if not df_transformed.empty:
+                logger.info(f"Đã lấy {len(df_transformed)} nến lịch sử")
+            else:
+                logger.warning(f"Không có dữ liệu lịch sử cho {n_candles} nến")
+
+            return df_transformed
+
         except Exception as e:
-            logger.error(f"Lỗi lấy dữ liệu lịch sử từ TradingView: {e}")
+            # Lỗi historical thì log warning (quan trọng hơn realtime)
+            logger.warning(f"Lỗi lấy dữ liệu lịch sử (bỏ qua): {e}")
             return pd.DataFrame(
-                columns=[
-                    "datetime",
-                    "open",
-                    "high",
-                    "low",
-                    "close",
-                    "volume",
-                ]
+                columns=["datetime", "open", "high", "low", "close", "volume"]
             )
-        if df is None or df.empty:
-            # Chỉ log warning cho historical vì đây là bước quan trọng
-            logger.warning(
-                f"Không có dữ liệu lịch sử từ TV adapter cho {n_candles} nến"
-            )
-            return pd.DataFrame(
-                columns=[
-                    "datetime",
-                    "open",
-                    "high",
-                    "low",
-                    "close",
-                    "volume",
-                ]
-            )
-
-        # Tạo trường datetime
-        df["datetime"] = pd.to_datetime(
-            df["date"] + " " + df["time"], format="%Y.%m.%d %H:%M:%S"
-        )
-
-        # Sắp xếp theo datetime
-        df = df.sort_values("datetime").reset_index(drop=True)
-
-        # Đổi tên cột vol thành volume nếu tồn tại
-        if "vol" in df.columns:
-            df.rename(columns={"vol": "volume"}, inplace=True)
-        elif "volume" not in df.columns:
-            df["volume"] = None
-
-        logger.info(f"Đã lấy {len(df)} nến lịch sử")
-        return df

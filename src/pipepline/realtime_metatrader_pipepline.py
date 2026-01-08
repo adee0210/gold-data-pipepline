@@ -91,7 +91,6 @@ class RealtimeMetatraderPipepline:
 
         consecutive_errors = 0
         max_consecutive_errors = 10  # Khởi động lại sau 10 lỗi liên tiếp
-        loop_count = 0
         last_log_time = time.time()
         log_interval = 300  # Log heartbeat mỗi 5 phút
 
@@ -102,7 +101,6 @@ class RealtimeMetatraderPipepline:
 
         try:
             while True:
-                loop_count += 1
 
                 try:
                     schedule.run_pending()
@@ -111,9 +109,7 @@ class RealtimeMetatraderPipepline:
                     # Log heartbeat định kỳ
                     current_time = time.time()
                     if current_time - last_log_time >= log_interval:
-                        logger.info(
-                            f"[HEARTBEAT] Pipeline đang chạy tốt. Loop count: {loop_count:,}"
-                        )
+                        logger.info(f"[HEARTBEAT] Pipeline đang chạy tốt.")
                         last_log_time = current_time
 
                     time.sleep(1)
