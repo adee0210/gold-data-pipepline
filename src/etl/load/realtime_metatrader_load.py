@@ -127,7 +127,8 @@ class RealtimeMetatraderLoad:
     def upsert_current_minute_candle(self, df):
         """Upsert nến phút hiện tại - update nếu tồn tại, insert nếu chưa có"""
         if df.empty:
-            logger.warning("Không có dữ liệu để upsert")
+            # Không log warning nữa - có thể thị trường đóng cửa
+            logger.debug("Không có dữ liệu để upsert")
             return
 
         # Đảm bảo có kết nối trước khi upsert
@@ -135,8 +136,10 @@ class RealtimeMetatraderLoad:
             logger.error("Không thể kết nối MongoDB, bỏ qua upsert")
             return
 
-        # Đảm bảo logic upsert rõ ràng và ngắn gọn
-        logger.info("Đang upsert nến phút hiện tại theo datetime...")
+        # Đảm bảo logic upsert rõ ràng và ngắn gọn - chỉ log tổng quát
+        upserted_count = 0
+        updated_count = 0
+
         for _, row in df.iterrows():
             candle_data = row.to_dict()
             datetime_key = candle_data.get("datetime")
@@ -153,13 +156,10 @@ class RealtimeMetatraderLoad:
                 )
 
                 if result.upserted_id:
-                    logger.info(
-                        f"Đã chèn nến mới cho {datetime_key}: close={candle_data.get('close')}, volume={candle_data.get('volume')}"
-                    )
+                    upserted_count += 1
                 else:
-                    logger.info(
-                        f"Đã cập nhật nến đã tồn tại cho {datetime_key}: close={candle_data.get('close')}, volume={candle_data.get('volume')}"
-                    )
+                    updated_count += 1
+
             except (ConnectionFailure, ServerSelectionTimeoutError) as e:
                 # Lỗi kết nối MongoDB - reset client để reconnect lần sau
                 logger.error(f"Lỗi kết nối MongoDB khi upsert {datetime_key}: {e}")
@@ -170,4 +170,10 @@ class RealtimeMetatraderLoad:
                 # Check nếu là lỗi liên quan connection
                 if "closed" in str(e).lower() or "connection" in str(e).lower():
                     self.mongo_config.reset_client()
-                    print("Mất kết nối, sẽ kết nối lại ở thao tác tiếp theo")
+                    logger.debug("Mất kết nối, sẽ kết nối lại ở thao tác tiếp theo")
+
+        # Chỉ log tổng kết, không log từng record
+        if upserted_count > 0 or updated_count > 0:
+            logger.info(
+                f"Upsert hoàn thành: {upserted_count} mới, {updated_count} cập nhật"
+            )

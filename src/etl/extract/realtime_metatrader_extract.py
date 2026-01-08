@@ -24,7 +24,6 @@ class RealtimeMetatraderExtract:
 
     def get_recent_candles(self, n_candles=10):
         """Lấy n nến gần nhất từ TradingView"""
-        logger.info(f"Đang lấy {n_candles} nến gần nhất")
         try:
             df = self.tv_adapter.get_realtime_data(
                 symbol=self.symbol, exchange=self.exchange, n_bars=n_candles
@@ -42,7 +41,8 @@ class RealtimeMetatraderExtract:
                 ]
             )
         if df is None or df.empty:
-            logger.warning("Không có dữ liệu trả về từ TV adapter")
+            # Chỉ log debug thôi, không warning - có thể thị trường đóng cửa
+            logger.debug(f"Không có dữ liệu từ TV adapter cho {n_candles} nến")
             return pd.DataFrame(
                 columns=[
                     "datetime",
@@ -91,7 +91,10 @@ class RealtimeMetatraderExtract:
                 ]
             )
         if df is None or df.empty:
-            logger.warning("Không có dữ liệu lịch sử trả về từ TV adapter")
+            # Chỉ log warning cho historical vì đây là bước quan trọng
+            logger.warning(
+                f"Không có dữ liệu lịch sử từ TV adapter cho {n_candles} nến"
+            )
             return pd.DataFrame(
                 columns=[
                     "datetime",
